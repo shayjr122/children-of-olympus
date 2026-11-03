@@ -21,6 +21,7 @@ namespace GMR.Tests
             Assert.IsFalse(f.DirectionLockHeld);
             Assert.IsFalse(f.HeroSwapPressed);
             Assert.IsFalse(f.PausePressed);
+            Assert.IsFalse(f.DebugMenuPressed);
             Assert.IsFalse(f.AnyPressed);
         }
 
@@ -40,6 +41,7 @@ namespace GMR.Tests
                 DirectionLockHeld = true,
                 HeroSwapPressed = true,
                 PausePressed = true,
+                DebugMenuPressed = true,
             };
             Assert.IsTrue(f.AnyPressed);
 
@@ -50,6 +52,15 @@ namespace GMR.Tests
             Assert.AreEqual(new Vector2(0f, 1f), f.Aim);
             Assert.IsTrue(f.BasicHeld);
             Assert.IsTrue(f.DirectionLockHeld);
+        }
+
+        [Test]
+        public void DebugMenuPressed_CountsAsPress()
+        {
+            var f = new InputFrame { DebugMenuPressed = true };
+            Assert.IsTrue(f.AnyPressed);
+            f.ClearPresses();
+            Assert.IsFalse(f.DebugMenuPressed);
         }
     }
 }

@@ -3,7 +3,10 @@
     "rootNamespace": "GMR.Editor",
     "references": [
         "GMR.Core",
-        "GMR.Runtime"
+        "GMR.Runtime",
+        "GMR.DevTools",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"

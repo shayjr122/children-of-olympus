@@ -21,10 +21,13 @@ namespace GMR.Core.Controls
         public bool HeroSwapPressed;
         public bool PausePressed;
 
+        /// <summary>Debug map ToggleDebugMenu (Select / F1). Opens the same pause/debug menu as Pause.</summary>
+        public bool DebugMenuPressed;
+
         /// <summary>True if any one-frame press flag is set.</summary>
         public readonly bool AnyPressed =>
             DashPressed || BasicPressed || SpecialPressed || SignaturePressed ||
-            UltimatePressed || HeroSwapPressed || PausePressed;
+            UltimatePressed || HeroSwapPressed || PausePressed || DebugMenuPressed;
 
         /// <summary>Clears the one-frame press flags; axes and held states are kept.</summary>
         public void ClearPresses()
@@ -36,6 +39,7 @@ namespace GMR.Core.Controls
             UltimatePressed = false;
             HeroSwapPressed = false;
             PausePressed = false;
+            DebugMenuPressed = false;
         }
     }
 }

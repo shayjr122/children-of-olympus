@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e599418cb96219045b5aafdf0985c6b8, type: 3}
+  m_Name: Config_Feedback
+  m_EditorClassIdentifier: GMR.Core::GMR.Core.Feedback.FeedbackConfig
+  _perfectDodgeFlash: 1
+  _flashDuration: 0.15
+  _flashMaxAlpha: 0.45
+  _perfectDodgeTimeSlow: 1
+  _timeSlowScale: 0.3
+  _timeSlowDuration: 0.15
+  _popupDuration: 0.7
+  _popupRise: 0.8

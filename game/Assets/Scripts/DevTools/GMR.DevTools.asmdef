@@ -3,7 +3,9 @@
     "rootNamespace": "GMR.DevTools",
     "references": [
         "GMR.Core",
-        "GMR.Runtime"
+        "GMR.Runtime",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
