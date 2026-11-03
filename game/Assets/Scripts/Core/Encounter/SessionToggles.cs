@@ -12,6 +12,9 @@ namespace GMR.Core.Encounter
         public bool? InputBuffering;
         public bool? PerfectDodgeFlash;
         public bool? PerfectDodgeTimeSlow;
+        public bool? DamageNumbers;
+        public bool? Hitstop;
+        public bool? ScreenShake;
 
         /// <summary>Effective value: the override if set, else the config default.</summary>
         public static bool Resolve(bool? overrideValue, bool configDefault) => overrideValue ?? configDefault;
@@ -23,6 +26,9 @@ namespace GMR.Core.Encounter
             InputBuffering = null;
             PerfectDodgeFlash = null;
             PerfectDodgeTimeSlow = null;
+            DamageNumbers = null;
+            Hitstop = null;
+            ScreenShake = null;
         }
     }
 }

@@ -47,6 +47,7 @@ namespace GMR.Runtime.Players
         public Vector2 Position => Hero != null ? Hero.Position : (Vector2)transform.position;
         public float Radius => Hero != null ? Hero.Radius : 0f;
         public bool IsInvulnerable(float now) => Hero != null && Hero.Invulnerability.IsInvulnerable(now);
+        public GMR.Core.Combat.IDamageable Damageable => Hero != null ? Hero : null;
 
         /// <summary>Called once by EncounterBootstrap when this Player joins. Does not rely on Awake having run.</summary>
         public void Init(EncounterContext context, PlayerId id, Vector2 spawnPosition)
@@ -58,9 +59,9 @@ namespace GMR.Runtime.Players
             }
             if (_reader == null) _reader = GetComponent<PlayerInputReader>();
             if (_reader == null || _startingHero == null || _heroPrefab == null || _inputConfig == null || _aimConfig == null ||
-                _startingHero.Move == null || _startingHero.Dash == null)
+                _startingHero.Move == null || _startingHero.Dash == null || _startingHero.Health == null)
             {
-                UnityEngine.Debug.LogError("[GMR/Players] PlayerRoot is missing its reader, HeroDefinition (with Move/Dash configs), Hero prefab or config.", this);
+                UnityEngine.Debug.LogError("[GMR/Players] PlayerRoot is missing its reader, HeroDefinition (with Move/Dash/Health configs), Hero prefab or config.", this);
                 return;
             }
 

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51e9cdf805e07c94f9dc5baa430d35fb, type: 3}
+  m_Name: Ability_Heracles_ClubStrike
+  m_EditorClassIdentifier: GMR.Core::GMR.Core.Abilities.AbilityDefinition
+  _id: heracles_club_strike
+  _displayName: Club Strike
+  _attackType: 0
+  _hitShape: 0
+  _range: 1.3
+  _width: 0.9
+  _forwardOffset: 0.2
+  _projectile: {fileID: 0}
+  _startup: 0.08
+  _active: 0.08
+  _recovery: 0.22
+  _cooldown: 0
+  _damage: 10
+  _damageTags: 1
+  _hitWeight: 1
+  _knockback: 6
+  _rootsCaster: 0
+  _status: {fileID: 0}
+  _statusStacks: 1
+  _color: {r: 1, g: 0.85, b: 0.4, a: 0.55}

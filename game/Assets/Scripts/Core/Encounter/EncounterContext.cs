@@ -14,12 +14,14 @@ namespace GMR.Core.Encounter
         public EncounterContext(ulong runSeed)
         {
             Rng = new RunRng(runSeed);
+            Damage = new DamageSystem(Events);
         }
 
         public RunRng Rng { get; }
         public PlayerRegistry Players { get; } = new PlayerRegistry();
         public EnemyRegistry Enemies { get; } = new EnemyRegistry();
         public CombatEvents Events { get; } = new CombatEvents();
+        public DamageSystem Damage { get; }
         public TimeScaleService TimeScale { get; } = new TimeScaleService();
         public PendingHitRegistry PendingHits { get; } = new PendingHitRegistry();
         public SessionToggles Toggles { get; } = new SessionToggles();

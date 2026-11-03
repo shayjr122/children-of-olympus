@@ -37,7 +37,9 @@ namespace GMR.Runtime.Heroes
                 _wasDashing = false;
             }
 
-            Vector2 target = MoveMath.TargetVelocity(_hero.Owner.Frame.Move, move);
+            // Movement continues during abilities unless the running one roots the caster (FR-1).
+            bool rooted = _hero.Abilities != null && _hero.Abilities.RootsCaster;
+            Vector2 target = rooted ? Vector2.zero : MoveMath.TargetVelocity(_hero.Owner.Frame.Move, move);
             body.linearVelocity = MoveMath.Step(body.linearVelocity, target, move, Time.fixedDeltaTime);
         }
     }

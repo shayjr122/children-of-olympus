@@ -32,6 +32,8 @@ namespace GMR.Runtime.Heroes
 
             if (Time.timeScale <= 0f) return;
             if (!dash.CanStart(now)) return; // Dashing or Dash Recovery: a buffered press waits (or expires)
+            // Ability Startup/Active cannot be cancelled: the press waits in the buffer until Recovery (FR-6).
+            if (_hero.Abilities != null && _hero.Abilities.BlocksDash) return;
 
             var owner = _hero.Owner;
             if (!owner.Buffer.TryConsume(BufferedAction.Dash, now)) return;
@@ -40,6 +42,7 @@ namespace GMR.Runtime.Heroes
             Vector2 move = MoveMath.ApplyDeadZone(owner.Frame.Move, _hero.Definition.Move.DeadZone);
             Vector2 direction = move.sqrMagnitude > 0f ? move.normalized : owner.Aim.Direction;
             if (!dash.TryStart(direction, now, config)) return;
+            _hero.Abilities?.CancelRecovery(); // DASH cancels the running ability's Recovery (FR-6)
 
             _hero.Invulnerability.Register(now, config.IFrameDuration, InvulnerabilitySource.Dash);
             UpdatePassThrough(true);

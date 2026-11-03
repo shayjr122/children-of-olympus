@@ -5,7 +5,8 @@ using UnityEngine.EventSystems;
 namespace GMR.Runtime.UI
 {
     /// <summary>
-    /// Pause (FR-29, AD-12): any Player's Pause (Start / Esc) or debug button (Select / F1) toggles the menu. Pausing
+    /// Pause (FR-29, AD-12): any Player's Pause (Start / Esc) or debug button (Select / F1) toggles the menu, and the
+    /// UI Cancel action (B / Esc, via MenuCancelHandler on the menu items) closes it. Pausing
     /// is a scale-0 hold on TimeScaleService; the menu is uGUI driven by InputSystemUIInputModule, so it works with
     /// gamepad only and keyboard only. Debug items inside the menu live in the DevTools assembly; this class does not know them.
     /// </summary>
@@ -21,6 +22,8 @@ namespace GMR.Runtime.UI
         [SerializeField, Tooltip("Selected when the menu opens (gamepad/keyboard focus).")] UnityEngine.UI.Selectable _firstSelected;
 
         int _pauseHandle = NoHandle;
+        int _openedFrame = -1;
+        int _closedFrame = -1;
 
         public bool IsOpen => _pauseHandle != NoHandle;
 
@@ -40,18 +43,33 @@ namespace GMR.Runtime.UI
                 Toggle();
                 break;
             }
+
+            // Keep a gamepad/keyboard focus while open (a mouse click on empty space clears the selection).
+            if (IsOpen && _eventSystem != null && _firstSelected != null && _eventSystem.currentSelectedGameObject == null)
+                _eventSystem.SetSelectedGameObject(_firstSelected.gameObject);
         }
 
         public void Toggle()
         {
             if (IsOpen) Close();
-            else Open();
+            else if (_closedFrame != Time.frameCount) Open(); // Esc is Pause AND Cancel: never close+reopen in one frame
+        }
+
+        /// <summary>
+        /// UI Cancel (B / Esc) closes the menu. Ignored in the frame the menu opened, because Esc is also the Pause
+        /// button that just opened it.
+        /// </summary>
+        public void CloseFromCancel()
+        {
+            if (!IsOpen || _openedFrame == Time.frameCount) return;
+            Close();
         }
 
         public void Open()
         {
             if (IsOpen || _bootstrap == null) return;
             _pauseHandle = _bootstrap.Context.TimeScale.Hold(0f);
+            _openedFrame = Time.frameCount;
             if (_timeScaleDriver != null) _timeScaleDriver.ApplyNow();
             if (_menuRoot != null) _menuRoot.SetActive(true);
             if (_eventSystem != null && _firstSelected != null)
@@ -70,6 +88,7 @@ namespace GMR.Runtime.UI
             var players = _bootstrap.PlayerRoots;
             for (int i = 0; i < players.Count; i++) players[i].DiscardPendingPresses();
             _pauseHandle = NoHandle;
+            _closedFrame = Time.frameCount;
             if (_timeScaleDriver != null) _timeScaleDriver.ApplyNow();
             if (_menuRoot != null) _menuRoot.SetActive(false);
             if (_eventSystem != null) _eventSystem.SetSelectedGameObject(null);

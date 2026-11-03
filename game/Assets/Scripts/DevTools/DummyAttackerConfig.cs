@@ -18,7 +18,15 @@ namespace GMR.DevTools
         [SerializeField, Min(0f), Tooltip("How long the area flashes after the hit lands.")]
         float _impactFlashTime = 0.15f;
 
+        [SerializeField, Min(0f), Tooltip("Damage dealt to a Player hit by the slam (through DamageSystem).")]
+        float _damage = 10f;
+
+        [SerializeField, Min(0f), Tooltip("Knockback strength pushing the Player out of the slam.")]
+        float _knockback = 4f;
+
         public float RestTime => _restTime;
+        public float Damage => _damage;
+        public float Knockback => _knockback;
         public float TelegraphTime => _telegraphTime;
         public float Radius => _radius;
         public float ImpactFlashTime => _impactFlashTime;

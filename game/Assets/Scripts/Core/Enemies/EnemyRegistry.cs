@@ -8,8 +8,12 @@ namespace GMR.Core.Enemies
     public sealed class EnemyRegistry
     {
         readonly List<IEnemyTarget> _enemies = new List<IEnemyTarget>(16);
+        int _nextId;
 
         public int Count => _enemies.Count;
+
+        /// <summary>A fresh EnemyId, unique within this Encounter (AD-4).</summary>
+        public EnemyId NextEnemyId() => new EnemyId(_nextId++);
         public IReadOnlyList<IEnemyTarget> All => _enemies;
 
         public void Register(IEnemyTarget enemy)

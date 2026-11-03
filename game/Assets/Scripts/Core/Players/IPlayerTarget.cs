@@ -17,5 +17,8 @@ namespace GMR.Core.Players
 
         /// <summary>True while any invulnerability window is active at scaled time <paramref name="now"/>.</summary>
         bool IsInvulnerable(float now);
+
+        /// <summary>What enemy attacks pass to DamageSystem: the Player's current Hero (null between Heroes).</summary>
+        GMR.Core.Combat.IDamageable Damageable { get; }
     }
 }

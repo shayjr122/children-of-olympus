@@ -16,6 +16,7 @@ namespace GMR.Tests
             public Vector2 Position => Vector2.zero;
             public float Radius => 0.4f;
             public bool IsInvulnerable(float now) => false;
+            public GMR.Core.Combat.IDamageable Damageable => null;
         }
 
         [Test]

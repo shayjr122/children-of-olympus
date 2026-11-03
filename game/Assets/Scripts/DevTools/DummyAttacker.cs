@@ -1,7 +1,6 @@
 using GMR.Core.Combat;
 using GMR.Core.Enemies;
 using GMR.Runtime.Encounter;
-using GMR.Runtime.Feedback;
 using UnityEngine;
 
 namespace GMR.DevTools
@@ -9,14 +8,15 @@ namespace GMR.DevTools
     /// <summary>
     /// Stand-in attacker for Perfect Dodge practice (Story 2.4). Every few seconds it telegraphs a circular slam (the
     /// fill grows until it reaches the ring = the hit lands), registering a PendingHit with its land time when the
-    /// telegraph starts. On landing it checks each overlapping Player: invulnerable = "AVOIDED" (HitAvoided-equivalent
-    /// log; no DamageSystem until Epic 3), otherwise "HIT". It is also an Aim Assist candidate.
+    /// telegraph starts. On landing it sends a DamageRequest for each overlapping Player through DamageSystem, using the
+    /// land time as the clock (the same clock the Perfect Dodge used): i-frames -> HitAvoided, otherwise PlayerDamaged
+    /// (red flash, number and post-hit invulnerability come from FeedbackRouter / the Hero). It is not damageable, but
+    /// it is an Aim Assist candidate.
     /// </summary>
     public sealed class DummyAttacker : MonoBehaviour, IEnemyTarget
     {
         [SerializeField] EncounterBootstrap _bootstrap;
         [SerializeField] DummyAttackerConfig _config;
-        [SerializeField] PopupSpawner _popups;
         [SerializeField, Tooltip("Faint full-size ring showing the hit area.")] SpriteRenderer _areaRing;
         [SerializeField, Tooltip("Fill that grows during the telegraph and flashes on impact.")] SpriteRenderer _areaFill;
         [SerializeField, Min(0f), Tooltip("Extra delay before the first attack, to desync several dummies.")] float _startDelay;
@@ -29,6 +29,8 @@ namespace GMR.DevTools
         int _attackId;
         bool _pending;
         bool _registered;
+        SourceId _source;
+        bool _hasId;
 
         public bool IsAlive => isActiveAndEnabled;
         public Vector2 Position => transform.position;
@@ -40,6 +42,11 @@ namespace GMR.DevTools
                 UnityEngine.Debug.LogError("[GMR/DevTools] DummyAttacker needs a bootstrap and a config.", this);
                 enabled = false;
                 return;
+            }
+            if (!_hasId)
+            {
+                _source = SourceId.ForEnemy(_bootstrap.Context.Enemies.NextEnemyId());
+                _hasId = true;
             }
             _bootstrap.Context.Enemies.Register(this);
             _registered = true;
@@ -94,20 +101,16 @@ namespace GMR.DevTools
             var context = _bootstrap.Context;
             var area = new PendingHit(_attackId, _landTime, transform.position, radius);
             var players = context.Players.All;
+            int hitId = context.Damage.NextHitId();
             for (int i = 0; i < players.Count; i++)
             {
                 var player = players[i];
-                if (!player.IsAlive || !area.Overlaps(player.Position, player.Radius)) continue;
-                if (player.IsInvulnerable(_landTime)) // same clock the Perfect Dodge used
-                {
-                    UnityEngine.Debug.Log($"[GMR/Combat] HitAvoided attack={_attackId} player={player.Id} (i-frames)");
-                    if (_popups != null) _popups.Show("AVOIDED", player.Position, new Color(0.5f, 0.9f, 1f, 1f));
-                }
-                else
-                {
-                    UnityEngine.Debug.Log($"[GMR/Combat] Hit (dummy, no damage yet) attack={_attackId} player={player.Id}");
-                    if (_popups != null) _popups.Show("HIT", player.Position, new Color(1f, 0.3f, 0.25f, 1f));
-                }
+                var target = player.Damageable;
+                if (target == null || !player.IsAlive || !area.Overlaps(player.Position, player.Radius)) continue;
+                Vector2 away = player.Position - (Vector2)transform.position;
+                Vector2 knockback = away.sqrMagnitude > 1e-6f ? away.normalized * _config.Knockback : Vector2.zero;
+                context.Damage.Apply(target, new DamageRequest(_source, _config.Damage, DamageTags.Physical, knockback,
+                    default, hitId, HitWeight.Heavy), _landTime);
             }
 
             context.PendingHits.Remove(_attackId);

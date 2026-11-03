@@ -7,8 +7,8 @@ using UnityEngine;
 namespace GMR.DevTools
 {
     /// <summary>
-    /// Debug items of the pause menu (Story 2.5, FR-29 partial): toggles for Aim Assist, Direction Lock, input
-    /// buffering, Perfect Dodge flash and time-slow. Each writes a session override on EncounterContext.Toggles
+    /// Debug items of the pause menu (Stories 2.5 and 3.4, FR-29 partial): toggles for Aim Assist, Direction Lock, input
+    /// buffering, Perfect Dodge flash and time-slow, damage numbers, hitstop and screen shake. Each writes a session override on EncounterContext.Toggles
     /// (Config assets stay read-only), applies immediately and persists until the scene is reloaded.
     /// </summary>
     public sealed class DebugTogglePanel : MonoBehaviour
@@ -23,6 +23,9 @@ namespace GMR.DevTools
         [SerializeField] UnityEngine.UI.Toggle _inputBuffer;
         [SerializeField] UnityEngine.UI.Toggle _perfectDodgeFlash;
         [SerializeField] UnityEngine.UI.Toggle _perfectDodgeTimeSlow;
+        [SerializeField] UnityEngine.UI.Toggle _damageNumbers;
+        [SerializeField] UnityEngine.UI.Toggle _hitstop;
+        [SerializeField] UnityEngine.UI.Toggle _screenShake;
 
         SessionToggles Toggles => _bootstrap.Context.Toggles;
 
@@ -39,6 +42,9 @@ namespace GMR.DevTools
             Bind(_inputBuffer, SessionToggles.Resolve(t.InputBuffering, _inputConfig.BufferEnabled), OnInputBuffer);
             Bind(_perfectDodgeFlash, SessionToggles.Resolve(t.PerfectDodgeFlash, _feedbackConfig.PerfectDodgeFlash), OnPerfectDodgeFlash);
             Bind(_perfectDodgeTimeSlow, SessionToggles.Resolve(t.PerfectDodgeTimeSlow, _feedbackConfig.PerfectDodgeTimeSlow), OnPerfectDodgeTimeSlow);
+            Bind(_damageNumbers, SessionToggles.Resolve(t.DamageNumbers, _feedbackConfig.DamageNumbers), OnDamageNumbers);
+            Bind(_hitstop, SessionToggles.Resolve(t.Hitstop, _feedbackConfig.Hitstop), OnHitstop);
+            Bind(_screenShake, SessionToggles.Resolve(t.ScreenShake, _feedbackConfig.ScreenShake), OnScreenShake);
         }
 
         void OnDisable()
@@ -48,6 +54,9 @@ namespace GMR.DevTools
             Unbind(_inputBuffer, OnInputBuffer);
             Unbind(_perfectDodgeFlash, OnPerfectDodgeFlash);
             Unbind(_perfectDodgeTimeSlow, OnPerfectDodgeTimeSlow);
+            Unbind(_damageNumbers, OnDamageNumbers);
+            Unbind(_hitstop, OnHitstop);
+            Unbind(_screenShake, OnScreenShake);
         }
 
         static void Bind(UnityEngine.UI.Toggle toggle, bool value, UnityEngine.Events.UnityAction<bool> handler)
@@ -67,6 +76,9 @@ namespace GMR.DevTools
         void OnInputBuffer(bool on) { Toggles.InputBuffering = on; Log("Input buffer", on); }
         void OnPerfectDodgeFlash(bool on) { Toggles.PerfectDodgeFlash = on; Log("Perfect Dodge flash", on); }
         void OnPerfectDodgeTimeSlow(bool on) { Toggles.PerfectDodgeTimeSlow = on; Log("Perfect Dodge time-slow", on); }
+        void OnDamageNumbers(bool on) { Toggles.DamageNumbers = on; Log("Damage numbers", on); }
+        void OnHitstop(bool on) { Toggles.Hitstop = on; Log("Hitstop", on); }
+        void OnScreenShake(bool on) { Toggles.ScreenShake = on; Log("Screen shake", on); }
 
         static void Log(string name, bool on) => UnityEngine.Debug.Log($"[GMR/DevTools] {name}: {(on ? "ON" : "OFF")}");
     }

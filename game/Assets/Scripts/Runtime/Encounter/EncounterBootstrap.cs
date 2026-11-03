@@ -74,6 +74,10 @@ namespace GMR.Runtime.Encounter
             }
         }
 
+        // First Update of the frame (-200): opens a new DamageSystem window for the per-frame request cap (AD-16).
+        // Physics callbacks (projectile hits) run before Update, so they count toward the previous window.
+        void Update() => Context.Damage.BeginFrame();
+
         void OnPlayerJoined(PlayerInput playerInput)
         {
             var root = playerInput.GetComponent<PlayerRoot>();

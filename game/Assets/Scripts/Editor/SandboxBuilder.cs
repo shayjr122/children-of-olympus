@@ -1,10 +1,14 @@
 using System;
 using System.IO;
 using System.Linq;
+using GMR.Core.Abilities;
+using GMR.Core.Combat;
 using GMR.Core.Controls;
 using GMR.Core.Feedback;
 using GMR.Core.Heroes;
+using GMR.Core.Status;
 using GMR.DevTools;
+using GMR.Runtime.Abilities;
 using GMR.Runtime.Controls;
 using GMR.Runtime.Encounter;
 using GMR.Runtime.Feedback;
@@ -23,9 +27,11 @@ using Object = UnityEngine.Object;
 namespace GMR.Editor
 {
     /// <summary>
-    /// Generates the M4a content (Epic 2): layers, placeholder sprites, Config/Definition assets, the PlayerRoot and
-    /// Hero prefabs and the Sandbox scene (walls, two dummy attackers, HUD hint, pause/debug menu). Idempotent:
-    /// existing Config assets are kept (tuning edits survive), prefabs and the scene contents are rebuilt.
+    /// Generates the Sandbox content (Epics 2 and 3): layers and the Physics2D layer matrix, placeholder sprites,
+    /// Config/Definition assets (Heracles' kit, health, projectile, Shock stub), the PlayerRoot, Hero and Projectile
+    /// prefabs and the Sandbox scene (walls, two dummy attackers, three training dummies, feedback, cooldown readout,
+    /// controls hint, pause/debug menu). Idempotent: existing Config/Definition assets are kept (tuning and slot edits
+    /// survive; empty Hero fields are filled), prefabs and the scene contents are rebuilt.
     /// Batchmode: unity run game -- -executeMethod GMR.Editor.SandboxBuilder.BuildAll
     /// </summary>
     public static class SandboxBuilder
@@ -38,18 +44,23 @@ namespace GMR.Editor
         const string RingPath = ArtDir + "/Placeholder_Ring.png";
         const string ArrowPath = ArtDir + "/Placeholder_Arrow.png";
         const string HeroesDir = "Assets/Data/Heroes";
+        const string AbilitiesDir = "Assets/Data/Abilities";
+        const string StatusesDir = "Assets/Data/Statuses";
         const string ConfigDir = "Assets/Data/Config";
         const string PrefabDir = "Assets/Prefabs";
 
         // Layer indices (Consistency Conventions: Player, Enemy, PlayerHitbox, EnemyHitbox, Projectile, Wall).
         const int PlayerLayer = 6;
         const int EnemyLayer = 7;
+        const int PlayerHitboxLayer = 8;
+        const int EnemyHitboxLayer = 9;
+        const int ProjectileLayer = 10;
         const int WallLayer = 11;
         static readonly string[] LayerNames = { "Player", "Enemy", "PlayerHitbox", "EnemyHitbox", "Projectile", "Wall" };
 
         static readonly Color WallColor = new Color(0.33f, 0.36f, 0.44f, 1f);
 
-        [MenuItem("GMR/Rebuild M4a Sandbox (scene, prefabs, configs)")]
+        [MenuItem("GMR/Rebuild Sandbox (scene, prefabs, configs)")]
         public static void BuildAll()
         {
             // Open the scene FIRST: opening a scene unloads unused assets, which would turn asset references
@@ -59,7 +70,10 @@ namespace GMR.Editor
             EnsureFolder(HeroesDir);
             EnsureFolder(ConfigDir);
             EnsureFolder(PrefabDir);
+            EnsureFolder(AbilitiesDir);
+            EnsureFolder(StatusesDir);
             EnsureLayers();
+            EnsureLayerMatrix();
 
             var square = LoadSprite(SquarePath);
             var circle = EnsureShapeSprite(CirclePath, 32, (x, y, s) => Inside(x, y, s, s * 0.5f));
@@ -72,6 +86,23 @@ namespace GMR.Editor
             var input = EnsureAsset<InputConfig>(ConfigDir + "/Config_Input.asset");
             var feedback = EnsureAsset<FeedbackConfig>(ConfigDir + "/Config_Feedback.asset");
             var dummyConfig = EnsureAsset<DummyAttackerConfig>(ConfigDir + "/Config_DummyAttacker.asset");
+            var trainingConfig = EnsureAsset<TrainingDummyConfig>(ConfigDir + "/Config_TrainingDummy.asset");
+            var heroHealth = EnsureAsset<HealthConfig>(ConfigDir + "/Config_Health_Heracles.asset", out bool heroHealthCreated);
+            if (heroHealthCreated) SetAll(heroHealth, ("_maxHp", 100f), ("_knockbackResistance", 0f), ("_postHitInvulnerability", 0.5f));
+            var dummyHealth = EnsureAsset<HealthConfig>(ConfigDir + "/Config_Health_TrainingDummy.asset", out bool dummyHealthCreated);
+            if (dummyHealthCreated) SetAll(dummyHealth, ("_maxHp", 100f), ("_knockbackResistance", 0.5f), ("_postHitInvulnerability", 0f));
+
+            var shock = EnsureAsset<StatusDefinition>(StatusesDir + "/Status_Shock.asset", out bool shockCreated);
+            if (shockCreated) SetAll(shock, ("_id", "shock"), ("_displayName", "Shock"), ("_tint", new Color(0.6f, 0.85f, 1f, 1f)));
+            var bolt = EnsureAsset<ProjectileConfig>(ConfigDir + "/Config_Projectile_Thunderbolt.asset", out bool boltCreated);
+            if (boltCreated)
+                SetAll(bolt, ("_speed", 14f), ("_lifetime", 0.8f), ("_radius", 0.2f), ("_pierce", 0),
+                    ("_color", new Color(0.55f, 0.85f, 1f, 1f)));
+            var (clubStrike, thunderbolt, stormWhirl) = EnsureHeraclesKit(shock, bolt);
+            // Re-serialize existing tuning assets so fields added by later stories appear in the files (defaults kept).
+            foreach (var asset in new Object[] { move, dash, aim, input, feedback, dummyConfig, trainingConfig })
+                EditorUtility.SetDirty(asset);
+
             var hero = EnsureAsset<HeroDefinition>(HeroesDir + "/Hero_Heracles.asset", out bool heroCreated);
             if (heroCreated)
             {
@@ -81,17 +112,25 @@ namespace GMR.Editor
             }
             Set(hero, "_move", move);
             Set(hero, "_dash", dash);
+            // Slot and health fields are filled only when empty, so slot swaps made by the team survive a rebuild.
+            SetIfEmpty(hero, "_health", heroHealth);
+            SetIfEmpty(hero, "_basic", clubStrike);
+            SetIfEmpty(hero, "_special", thunderbolt);
+            SetIfEmpty(hero, "_signature", stormWhirl);
+            SetIfEmpty(hero, "_primaryStatus", shock);
 
             var controls = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ControlsPath)
                            ?? throw new InvalidOperationException("GameControls.inputactions not found at " + ControlsPath);
 
-            var heroPrefab = BuildHeroPrefab(square, ring, arrow);
+            var projectilePrefab = BuildProjectilePrefab(circle);
+            var heroPrefab = BuildHeroPrefab(square, circle, ring, arrow, projectilePrefab);
             var playerPrefab = BuildPlayerRootPrefab(controls, hero, heroPrefab, input, aim);
-            BuildScene(scene, controls, playerPrefab, square, circle, ring, aim, input, feedback, dummyConfig);
+            BuildScene(scene, controls, playerPrefab, square, circle, ring, aim, input, feedback, dummyConfig,
+                trainingConfig, dummyHealth);
             EnsureSceneInBuildSettings();
 
             AssetDatabase.SaveAssets();
-            UnityEngine.Debug.Log("[GMR/Editor] M4a Sandbox rebuilt.");
+            UnityEngine.Debug.Log("[GMR/Editor] Sandbox rebuilt (M4b).");
         }
 
         // ---------------------------------------------------------------- project setup
@@ -108,6 +147,51 @@ namespace GMR.Editor
                     throw new InvalidOperationException($"Layer {PlayerLayer + i} is '{p.stringValue}', expected '{LayerNames[i]}'.");
             }
             tagManager.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>Projectiles only meet enemies, walls and Default (Epic 3 deferred item: layer matrix).</summary>
+        static void EnsureLayerMatrix()
+        {
+            Physics2D.IgnoreLayerCollision(ProjectileLayer, PlayerLayer, true);
+            Physics2D.IgnoreLayerCollision(ProjectileLayer, PlayerHitboxLayer, true);
+            Physics2D.IgnoreLayerCollision(ProjectileLayer, EnemyHitboxLayer, true);
+            Physics2D.IgnoreLayerCollision(ProjectileLayer, ProjectileLayer, true);
+            var settings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/Physics2DSettings.asset");
+            if (settings.Length > 0) EditorUtility.SetDirty(settings[0]);
+        }
+
+        static (AbilityDefinition club, AbilityDefinition bolt, AbilityDefinition whirl) EnsureHeraclesKit(
+            StatusDefinition shock, ProjectileConfig boltProjectile)
+        {
+            var club = EnsureAsset<AbilityDefinition>(AbilitiesDir + "/Ability_Heracles_ClubStrike.asset", out bool clubCreated);
+            if (clubCreated)
+                SetAll(club, ("_id", "heracles_club_strike"), ("_displayName", "Club Strike"),
+                    ("_attackType", (int)AttackType.Thrust), ("_hitShape", (int)HitShape.Box),
+                    ("_range", 1.3f), ("_width", 0.9f), ("_forwardOffset", 0.2f),
+                    ("_startup", 0.08f), ("_active", 0.08f), ("_recovery", 0.22f), ("_cooldown", 0f),
+                    ("_damage", 10f), ("_damageTags", (int)DamageTags.Physical), ("_hitWeight", (int)HitWeight.Heavy),
+                    ("_knockback", 6f), ("_rootsCaster", false), ("_color", new Color(1f, 0.85f, 0.4f, 0.55f)));
+
+            var bolt = EnsureAsset<AbilityDefinition>(AbilitiesDir + "/Ability_Heracles_Thunderbolt.asset", out bool boltCreated);
+            if (boltCreated)
+                SetAll(bolt, ("_id", "heracles_thunderbolt"), ("_displayName", "Thunderbolt"),
+                    ("_attackType", (int)AttackType.Shot), ("_hitShape", (int)HitShape.Projectile),
+                    ("_projectile", boltProjectile), ("_range", 0f), ("_width", 0f), ("_forwardOffset", 0f),
+                    ("_startup", 0.1f), ("_active", 0.05f), ("_recovery", 0.2f), ("_cooldown", 3f),
+                    ("_damage", 8f), ("_damageTags", (int)DamageTags.Shock), ("_hitWeight", (int)HitWeight.Light),
+                    ("_knockback", 3f), ("_rootsCaster", false), ("_status", shock), ("_statusStacks", 1),
+                    ("_color", new Color(0.55f, 0.85f, 1f, 0.6f)));
+
+            var whirl = EnsureAsset<AbilityDefinition>(AbilitiesDir + "/Ability_Heracles_StormWhirl.asset", out bool whirlCreated);
+            if (whirlCreated)
+                SetAll(whirl, ("_id", "heracles_storm_whirl"), ("_displayName", "Storm Whirl"),
+                    ("_attackType", (int)AttackType.Spin), ("_hitShape", (int)HitShape.Circle),
+                    ("_range", 2.2f), ("_width", 0f), ("_forwardOffset", 0f),
+                    ("_startup", 0.12f), ("_active", 0.3f), ("_recovery", 0.3f), ("_cooldown", 8f),
+                    ("_damage", 20f), ("_damageTags", (int)DamageTags.Physical), ("_hitWeight", (int)HitWeight.Heavy),
+                    ("_knockback", 7f), ("_rootsCaster", false), ("_status", shock), ("_statusStacks", 1),
+                    ("_color", new Color(0.6f, 0.85f, 1f, 0.35f)));
+            return (club, bolt, whirl);
         }
 
         static void EnsureSceneInBuildSettings()
@@ -193,7 +277,30 @@ namespace GMR.Editor
 
         // ---------------------------------------------------------------- prefabs
 
-        static HeroRuntime BuildHeroPrefab(Sprite square, Sprite ring, Sprite arrow)
+        static Projectile BuildProjectilePrefab(Sprite circle)
+        {
+            var root = new GameObject("Projectile_Placeholder") { layer = ProjectileLayer };
+            var body = root.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic; // dynamic trigger: gets trigger events with static walls too
+            body.gravityScale = 0f;
+            body.constraints = RigidbodyConstraints2D.FreezeRotation;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+            var collider = root.AddComponent<CircleCollider2D>();
+            collider.radius = 0.5f; // root is scaled to the configured diameter at launch
+            collider.isTrigger = true;
+            var sr = root.AddComponent<SpriteRenderer>();
+            sr.sprite = circle;
+            sr.sortingOrder = 15;
+            var projectile = root.AddComponent<Projectile>();
+            Set(projectile, "_renderer", sr);
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabDir + "/Projectile_Placeholder.prefab");
+            Object.DestroyImmediate(root);
+            return prefab.GetComponent<Projectile>();
+        }
+
+        static HeroRuntime BuildHeroPrefab(Sprite square, Sprite circle, Sprite ring, Sprite arrow, Projectile projectilePrefab)
         {
             var root = new GameObject("Hero_Placeholder") { layer = PlayerLayer };
             var body = root.AddComponent<Rigidbody2D>();
@@ -212,6 +319,10 @@ namespace GMR.Editor
             assist.enabled = false;
             var bar = Child(root, "RecoveryBar", square, new Color(0.55f, 0.75f, 1f, 1f), 11, new Vector2(0f, -0.62f), new Vector2(1f, 0.12f));
             bar.enabled = false;
+            var boxShape = Child(root, "AbilityBoxShape", square, new Color(1f, 0.85f, 0.4f, 0.55f), 9, Vector2.zero, Vector2.one);
+            boxShape.enabled = false;
+            var circleShape = Child(root, "AbilityCircleShape", circle, new Color(0.6f, 0.85f, 1f, 0.35f), 2, Vector2.zero, Vector2.one);
+            circleShape.enabled = false;
 
             var heroRuntime = root.AddComponent<HeroRuntime>();
             Set(heroRuntime, "_body", bodyRenderer);
@@ -224,6 +335,14 @@ namespace GMR.Editor
             Set(indicator, "_hero", heroRuntime);
             Set(indicator, "_arrow", arrowRenderer);
             Set(indicator, "_assistMarker", assist);
+            var abilities = root.AddComponent<AbilityController>();
+            Set(abilities, "_targetLayers", 1 << EnemyLayer);
+            Set(abilities, "_wallLayers", 1 << WallLayer);
+            Set(abilities, "_projectilePrefab", projectilePrefab);
+            Set(abilities, "_boxShape", boxShape);
+            Set(abilities, "_circleShape", circleShape);
+            var flash = root.AddComponent<HitFlash>();
+            Set(flash, "_renderer", bodyRenderer);
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabDir + "/Hero_Placeholder.prefab");
             Object.DestroyImmediate(root);
@@ -274,7 +393,8 @@ namespace GMR.Editor
         // ---------------------------------------------------------------- scene
 
         static void BuildScene(UnityEngine.SceneManagement.Scene scene, InputActionAsset controls, GameObject playerPrefab, Sprite square, Sprite circle, Sprite ring,
-            AimConfig aim, InputConfig input, FeedbackConfig feedback, DummyAttackerConfig dummyConfig)
+            AimConfig aim, InputConfig input, FeedbackConfig feedback, DummyAttackerConfig dummyConfig,
+            TrainingDummyConfig trainingConfig, HealthConfig dummyHealth)
         {
             Camera camera = null;
             foreach (var go in scene.GetRootGameObjects())
@@ -285,6 +405,7 @@ namespace GMR.Editor
             if (camera == null) throw new InvalidOperationException("Sandbox has no 'Main Camera'.");
             camera.backgroundColor = new Color(0.09f, 0.09f, 0.12f, 1f);
             camera.clearFlags = CameraClearFlags.SolidColor;
+            if (!camera.TryGetComponent(out CameraShake cameraShake)) cameraShake = camera.gameObject.AddComponent<CameraShake>();
 
             // Bootstrap: context, player join, time scale.
             var bootGo = new GameObject("EncounterBootstrap");
@@ -323,12 +444,22 @@ namespace GMR.Editor
 
             var help = UiText(canvas.transform, "ControlsHint", font,
                 "Move: L-stick / WASD    DASH: A / Space    Direction Lock (hold): LT / Left Shift\n" +
-                "Pause + debug menu: Start / Esc  (or Select / F1)    Menu: D-pad, stick or arrows + A / Enter",
+                "Club Strike: X / J / LMB    Thunderbolt: Y / K / RMB    Storm Whirl: B / E\n" +
+                "Pause + debug menu: Start / Esc  (or Select / F1)    Menu: D-pad / stick / arrows, A / Enter, back: B / Esc",
                 9, TextAnchor.LowerLeft, new Color(1f, 1f, 1f, 0.8f));
             var helpRect = help.rectTransform;
             helpRect.anchorMin = helpRect.anchorMax = helpRect.pivot = new Vector2(0f, 0f);
             helpRect.anchoredPosition = new Vector2(6f, 4f);
-            helpRect.sizeDelta = new Vector2(600f, 28f);
+            helpRect.sizeDelta = new Vector2(620f, 40f);
+
+            var readout = UiText(canvas.transform, "CooldownReadout", font, "", 10, TextAnchor.UpperLeft, Color.white);
+            var readoutRect = readout.rectTransform;
+            readoutRect.anchorMin = readoutRect.anchorMax = readoutRect.pivot = new Vector2(0f, 1f);
+            readoutRect.anchoredPosition = new Vector2(6f, -4f);
+            readoutRect.sizeDelta = new Vector2(620f, 30f);
+            var readoutView = readout.gameObject.AddComponent<AbilityCooldownReadout>();
+            Set(readoutView, "_bootstrap", bootstrap);
+            Set(readoutView, "_text", readout);
 
             var feedbackGo = new GameObject("Feedback");
             var popups = feedbackGo.AddComponent<PopupSpawner>();
@@ -341,13 +472,29 @@ namespace GMR.Editor
             Set(pdFeedback, "_config", feedback);
             Set(pdFeedback, "_flash", flash);
             Set(pdFeedback, "_popups", popups);
+            var sfxSource = feedbackGo.AddComponent<AudioSource>();
+            sfxSource.playOnAwake = false;
+            var sfx = feedbackGo.AddComponent<SfxHookPlayer>();
+            Set(sfx, "_config", feedback);
+            Set(sfx, "_source", sfxSource);
+            var router = feedbackGo.AddComponent<FeedbackRouter>();
+            Set(router, "_bootstrap", bootstrap);
+            Set(router, "_config", feedback);
+            Set(router, "_popups", popups);
+            Set(router, "_cameraShake", cameraShake);
+            Set(router, "_sfx", sfx);
 
             var pauseGo = new GameObject("PauseController");
             var pause = pauseGo.AddComponent<PauseController>();
             BuildPauseMenu(canvas.transform, font, pause, bootstrap, driver, eventSystem, aim, input, feedback);
 
-            BuildDummy("DummyAttacker_A", new Vector2(3f, 1.5f), 0f, bootstrap, dummyConfig, popups, square, circle, ring);
-            BuildDummy("DummyAttacker_B", new Vector2(-1.5f, -3.2f), 0.9f, bootstrap, dummyConfig, popups, square, circle, ring);
+            BuildDummy("DummyAttacker_A", new Vector2(5f, 2.6f), 0f, bootstrap, dummyConfig, square, circle, ring);
+            BuildDummy("DummyAttacker_B", new Vector2(-1.5f, -3.4f), 0.9f, bootstrap, dummyConfig, square, circle, ring);
+
+            // Three training dummies in a triangle around (0.8, 0): Storm Whirl from the center reaches all three.
+            BuildTrainingDummy("TrainingDummy_1", new Vector2(-0.3f, 0f), bootstrap, dummyHealth, trainingConfig, square);
+            BuildTrainingDummy("TrainingDummy_2", new Vector2(1.3f, 1.0f), bootstrap, dummyHealth, trainingConfig, square);
+            BuildTrainingDummy("TrainingDummy_3", new Vector2(1.3f, -1.0f), bootstrap, dummyHealth, trainingConfig, square);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException("Failed to save " + ScenePath);
@@ -378,7 +525,7 @@ namespace GMR.Editor
         }
 
         static void BuildDummy(string name, Vector2 position, float startDelay, EncounterBootstrap bootstrap,
-            DummyAttackerConfig config, PopupSpawner popups, Sprite square, Sprite circle, Sprite ring)
+            DummyAttackerConfig config, Sprite square, Sprite circle, Sprite ring)
         {
             var go = new GameObject(name) { layer = EnemyLayer };
             go.transform.position = position;
@@ -391,10 +538,44 @@ namespace GMR.Editor
             var dummy = go.AddComponent<DummyAttacker>();
             Set(dummy, "_bootstrap", bootstrap);
             Set(dummy, "_config", config);
-            Set(dummy, "_popups", popups);
             Set(dummy, "_areaRing", areaRing);
             Set(dummy, "_areaFill", areaFill);
             Set(dummy, "_startDelay", startDelay);
+        }
+
+        static void BuildTrainingDummy(string name, Vector2 position, EncounterBootstrap bootstrap, HealthConfig health,
+            TrainingDummyConfig config, Sprite square)
+        {
+            var go = new GameObject(name) { layer = EnemyLayer };
+            go.transform.position = position;
+            var body = go.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic; // knockback is an impulse (AD-16 ApplyResolved)
+            body.gravityScale = 0f;
+            body.mass = 3f;
+            body.linearDamping = 6f;
+            body.constraints = RigidbodyConstraints2D.FreezeRotation;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+            go.AddComponent<CircleCollider2D>().radius = 0.45f;
+
+            var visual = new GameObject("Visual") { layer = EnemyLayer };
+            visual.transform.SetParent(go.transform, false);
+            var bodyRenderer = Child(visual, "Body", square, new Color(0.86f, 0.74f, 0.5f, 1f), 3, Vector2.zero, new Vector2(0.75f, 0.9f));
+            Child(visual, "Post", square, new Color(0.55f, 0.4f, 0.25f, 1f), 2, new Vector2(0f, -0.1f), new Vector2(0.15f, 1.1f));
+            var barBack = Child(go, "HpBarBack", square, new Color(0.1f, 0.1f, 0.1f, 0.85f), 20, new Vector2(0f, 0.68f), new Vector2(1f, 0.12f));
+            var barFill = Child(go, "HpBarFill", square, new Color(0.35f, 0.9f, 0.35f, 1f), 21, new Vector2(0f, 0.68f), new Vector2(1f, 0.12f));
+
+            var dummy = go.AddComponent<TrainingDummy>();
+            Set(dummy, "_bootstrap", bootstrap);
+            Set(dummy, "_health", health);
+            Set(dummy, "_config", config);
+            Set(dummy, "_visualRoot", visual);
+            var flash = go.AddComponent<HitFlash>();
+            Set(flash, "_renderer", bodyRenderer);
+            var bar = go.AddComponent<HealthBarView>();
+            Set(bar, "_target", dummy);
+            Set(bar, "_background", barBack);
+            Set(bar, "_fill", barFill);
+            Set(bar, "_width", 1f);
         }
 
         // ---------------------------------------------------------------- UI
@@ -449,30 +630,40 @@ namespace GMR.Editor
             dim.raycastTarget = true;
 
             var panel = UiImage(dim.transform, "Panel", new Color(0.1f, 0.1f, 0.15f, 0.95f));
-            panel.rectTransform.sizeDelta = new Vector2(280f, 260f);
+            panel.rectTransform.sizeDelta = new Vector2(280f, 340f);
 
             var title = UiText(panel.transform, "Title", font, "PAUSED", 18, TextAnchor.MiddleCenter, Color.white);
             title.fontStyle = FontStyle.Bold;
-            Place(title.rectTransform, 0f, 105f, 260f, 26f);
+            Place(title.rectTransform, 0f, 145f, 260f, 26f);
 
-            var resume = BuildButton(panel.transform, font, "Resume", 70f);
+            var resume = BuildButton(panel.transform, font, "Resume", 112f);
             UnityEventTools.AddPersistentListener(resume.onClick, pause.Close);
 
             var header = UiText(panel.transform, "DebugHeader", font, "Debug toggles (session only)", 10, TextAnchor.MiddleCenter,
                 new Color(1f, 1f, 1f, 0.6f));
-            Place(header.rectTransform, 0f, 44f, 260f, 16f);
+            Place(header.rectTransform, 0f, 88f, 260f, 16f);
 
-            var aimAssist = BuildToggle(panel.transform, font, "Aim Assist", 22f);
-            var dirLock = BuildToggle(panel.transform, font, "Direction Lock", -2f);
-            var buffer = BuildToggle(panel.transform, font, "Input buffer", -26f);
-            var pdFlash = BuildToggle(panel.transform, font, "Perfect Dodge flash", -50f);
-            var pdSlow = BuildToggle(panel.transform, font, "Perfect Dodge time-slow", -74f);
+            var aimAssist = BuildToggle(panel.transform, font, "Aim Assist", 66f);
+            var dirLock = BuildToggle(panel.transform, font, "Direction Lock", 42f);
+            var buffer = BuildToggle(panel.transform, font, "Input buffer", 18f);
+            var pdFlash = BuildToggle(panel.transform, font, "Perfect Dodge flash", -6f);
+            var pdSlow = BuildToggle(panel.transform, font, "Perfect Dodge time-slow", -30f);
+            var damageNumbers = BuildToggle(panel.transform, font, "Damage numbers", -54f);
+            var hitstop = BuildToggle(panel.transform, font, "Hitstop", -78f);
+            var shake = BuildToggle(panel.transform, font, "Screen shake", -102f);
 
-            var footer = UiText(panel.transform, "Footer", font, "Navigate: D-pad / stick / arrows    Toggle: A / Enter\nClose: Start / Esc",
+            var footer = UiText(panel.transform, "Footer", font,
+                "Navigate: D-pad / stick / arrows    Toggle: A / Enter\nClose: Start / Esc / B (back)",
                 9, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
-            Place(footer.rectTransform, 0f, -108f, 260f, 26f);
+            Place(footer.rectTransform, 0f, -142f, 260f, 26f);
 
-            LinkVertical(resume, aimAssist, dirLock, buffer, pdFlash, pdSlow);
+            var items = new UnityEngine.UI.Selectable[] { resume, aimAssist, dirLock, buffer, pdFlash, pdSlow, damageNumbers, hitstop, shake };
+            LinkVertical(items);
+            foreach (var item in items)
+            {
+                var cancel = item.gameObject.AddComponent<MenuCancelHandler>();
+                Set(cancel, "_pause", pause);
+            }
 
             var panelTools = dim.gameObject.AddComponent<DebugTogglePanel>();
             Set(panelTools, "_bootstrap", bootstrap);
@@ -484,6 +675,9 @@ namespace GMR.Editor
             Set(panelTools, "_inputBuffer", buffer);
             Set(panelTools, "_perfectDodgeFlash", pdFlash);
             Set(panelTools, "_perfectDodgeTimeSlow", pdSlow);
+            Set(panelTools, "_damageNumbers", damageNumbers);
+            Set(panelTools, "_hitstop", hitstop);
+            Set(panelTools, "_screenShake", shake);
 
             Set(pause, "_bootstrap", bootstrap);
             Set(pause, "_timeScaleDriver", driver);
@@ -631,6 +825,21 @@ namespace GMR.Editor
                 case null: p.objectReferenceValue = null; break;
                 default: throw new NotSupportedException(value.GetType().Name);
             }
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void SetAll(Object target, params (string property, object value)[] values)
+        {
+            foreach (var (property, value) in values) Set(target, property, value);
+        }
+
+        /// <summary>Sets an object reference only if it is empty (keeps edits made in the Inspector).</summary>
+        static void SetIfEmpty(Object target, string property, Object value)
+        {
+            var so = new SerializedObject(target);
+            var p = so.FindProperty(property) ?? throw new InvalidOperationException($"{target.GetType().Name}.{property} not found.");
+            if (p.objectReferenceValue != null) return;
+            p.objectReferenceValue = value;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

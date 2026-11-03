@@ -20,3 +20,22 @@ MonoBehaviour:
   _timeSlowDuration: 0.15
   _popupDuration: 0.7
   _popupRise: 0.8
+  _hitstop: 1
+  _hitstopLight: 0.03
+  _hitstopHeavy: 0.08
+  _hitstopScale: 0.05
+  _hitFlash: 1
+  _hitFlashColor: {r: 1, g: 1, b: 1, a: 1}
+  _hitFlashDuration: 0.1
+  _playerHurtColor: {r: 1, g: 0.15, b: 0.1, a: 1}
+  _playerHurtFlashDuration: 0.25
+  _damageNumbers: 1
+  _damageNumberColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  _heavyDamageNumberColor: {r: 1, g: 0.75, b: 0.2, a: 1}
+  _playerDamageNumberColor: {r: 1, g: 0.35, b: 0.3, a: 1}
+  _screenShake: 1
+  _shakeAmplitude: 0.15
+  _shakeDuration: 0.15
+  _playerHurtShakeScale: 0.6
+  _sfxHooks: 1
+  _logSfxCues: 0
