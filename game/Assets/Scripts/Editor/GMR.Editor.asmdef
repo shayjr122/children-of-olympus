@@ -1,0 +1,19 @@
+{
+    "name": "GMR.Editor",
+    "rootNamespace": "GMR.Editor",
+    "references": [
+        "GMR.Core",
+        "GMR.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

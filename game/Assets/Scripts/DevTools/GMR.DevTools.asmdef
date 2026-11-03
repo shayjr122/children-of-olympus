@@ -1,0 +1,19 @@
+{
+    "name": "GMR.DevTools",
+    "rootNamespace": "GMR.DevTools",
+    "references": [
+        "GMR.Core",
+        "GMR.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_EDITOR || DEVELOPMENT_BUILD"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
