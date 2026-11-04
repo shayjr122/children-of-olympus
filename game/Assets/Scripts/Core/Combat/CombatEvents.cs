@@ -1,5 +1,7 @@
 using System;
 using GMR.Core.Abilities;
+using GMR.Core.Combo;
+using GMR.Core.Rage;
 
 namespace GMR.Core.Combat
 {
@@ -17,6 +19,12 @@ namespace GMR.Core.Combat
         public event Action<PlayerDamaged> OnPlayerDamaged;
         public event Action<EnemyDied> OnEnemyDied;
         public event Action<AbilityUsed> OnAbilityUsed;
+        public event Action<UltimateUsed> OnUltimateUsed;
+        public event Action<UltimateNotReady> OnUltimateNotReady;
+        public event Action<ComboChanged> OnComboChanged;
+        public event Action<ComboReset> OnComboReset;
+        public event Action<RageChanged> OnRageChanged;
+        public event Action<RageFull> OnRageFull;
 
         /// <summary>Owner: DashController.</summary>
         public void RaiseDashStarted(in DashStarted e) => OnDashStarted?.Invoke(e);
@@ -38,5 +46,23 @@ namespace GMR.Core.Combat
 
         /// <summary>Owner: AbilityRunner.</summary>
         internal void RaiseAbilityUsed(in AbilityUsed e) => OnAbilityUsed?.Invoke(e);
+
+        /// <summary>Owner: AbilityRunner (Ultimate slot).</summary>
+        internal void RaiseUltimateUsed(in UltimateUsed e) => OnUltimateUsed?.Invoke(e);
+
+        /// <summary>Owner: UltimateGate.</summary>
+        internal void RaiseUltimateNotReady(in UltimateNotReady e) => OnUltimateNotReady?.Invoke(e);
+
+        /// <summary>Owner: ComboCounter.</summary>
+        internal void RaiseComboChanged(in ComboChanged e) => OnComboChanged?.Invoke(e);
+
+        /// <summary>Owner: ComboCounter.</summary>
+        internal void RaiseComboReset(in ComboReset e) => OnComboReset?.Invoke(e);
+
+        /// <summary>Owner: RageMeter.</summary>
+        internal void RaiseRageChanged(in RageChanged e) => OnRageChanged?.Invoke(e);
+
+        /// <summary>Owner: RageMeter.</summary>
+        internal void RaiseRageFull(in RageFull e) => OnRageFull?.Invoke(e);
     }
 }

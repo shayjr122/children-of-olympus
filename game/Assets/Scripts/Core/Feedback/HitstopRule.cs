@@ -11,10 +11,14 @@ namespace GMR.Core.Feedback
     {
         /// <summary>Requests hitstop if the rule allows it; returns true if a request was made.</summary>
         public static bool TryRequest(TimeScaleService timeScale, FeedbackConfig config, bool enabled, HitWeight weight,
-            float nowUnscaled)
+            float nowUnscaled) => TryRequest(timeScale, config, enabled, weight, DamageTags.None, nowUnscaled);
+
+        /// <summary>As above; hits tagged Ultimate use the Ultimate hitstop.</summary>
+        public static bool TryRequest(TimeScaleService timeScale, FeedbackConfig config, bool enabled, HitWeight weight,
+            DamageTags tags, float nowUnscaled)
         {
             if (timeScale == null || config == null || !enabled) return false;
-            float duration = config.HitstopDuration(weight);
+            float duration = config.HitstopDuration(weight, tags);
             if (!(duration > 0f)) return false;
             timeScale.Request(config.HitstopScale, duration, nowUnscaled);
             return true;

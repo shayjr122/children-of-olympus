@@ -9,7 +9,8 @@ namespace GMR.Core.Abilities
     /// One slot's ability state machine (FR-9, AD-8): Ready -> Startup -> Active -> Recovery -> Ready, plus cooldown.
     /// Plain C#, ticked with scaled time by the Runtime AbilityController. Timings are snapshotted at start; cooldown
     /// starts when the ability is used and is always 0 in the Basic slot (slot-agnostic assets). DASH may cancel the
-    /// Recovery only. Sole raiser of AbilityUsed (AD-16).
+    /// Recovery only. Sole raiser of AbilityUsed and, in the Ultimate slot, UltimateUsed (AD-16). The Ultimate slot is
+    /// only started through UltimateGate (RAGE gate).
     /// </summary>
     public sealed class AbilityRunner
     {
@@ -66,6 +67,7 @@ namespace GMR.Core.Abilities
             Phase = AbilityPhase.Startup;
 
             _events.RaiseAbilityUsed(new AbilityUsed(Owner, Slot, Definition, position, Direction, now));
+            if (Slot == AbilitySlot.Ultimate) _events.RaiseUltimateUsed(new UltimateUsed(Owner, Definition, position, now));
             return true;
         }
 

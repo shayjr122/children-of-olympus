@@ -1,5 +1,6 @@
 using GMR.Core.Abilities;
 using GMR.Core.Combat;
+using GMR.Core.Rage;
 using GMR.Core.Status;
 using UnityEngine;
 
@@ -8,7 +9,8 @@ namespace GMR.Core.Heroes
     /// <summary>
     /// Content identity of a Hero (AD-6, AD-8). A HeroRuntime is built from it: movement, DASH and health tuning come
     /// from the referenced Config assets, and the kit is whatever AbilityDefinitions sit in the slot fields (any asset
-    /// in any slot; re-enter Play Mode after changing them). RAGE config and chains arrive with Epics 4 and 8.
+    /// in any slot; re-enter Play Mode after changing them). The Ultimate is gated by RAGE, tuned by the RageConfig.
+    /// Chains arrive with Epic 8.
     /// </summary>
     [CreateAssetMenu(menuName = "GMR/Definition/Hero Definition", fileName = "Hero_")]
     public sealed class HeroDefinition : ScriptableObject
@@ -29,7 +31,9 @@ namespace GMR.Core.Heroes
         [SerializeField] AbilityDefinition _basic;
         [SerializeField] AbilityDefinition _special;
         [SerializeField] AbilityDefinition _signature;
-        [SerializeField, Tooltip("Gated by RAGE in Epic 4; not usable yet.")] AbilityDefinition _ultimate;
+        [SerializeField, Tooltip("Fires only at full RAGE (UltimateGate) and consumes it.")] AbilityDefinition _ultimate;
+
+        [SerializeField, Tooltip("RAGE fill amounts and decay for this Hero (FR-15, FR-16).")] RageConfig _rage;
 
         [SerializeField, Tooltip("The Hero's signature status (Heracles: Shock). Used by the Status System, Epic 5.")]
         StatusDefinition _primaryStatus;
@@ -44,6 +48,7 @@ namespace GMR.Core.Heroes
         public AbilityDefinition Special { get => _special; internal set => _special = value; }
         public AbilityDefinition Signature { get => _signature; internal set => _signature = value; }
         public AbilityDefinition Ultimate { get => _ultimate; internal set => _ultimate = value; }
+        public RageConfig Rage { get => _rage; internal set => _rage = value; }
         public StatusDefinition PrimaryStatus { get => _primaryStatus; internal set => _primaryStatus = value; }
 
         public AbilityDefinition Get(AbilitySlot slot) => slot switch
@@ -62,6 +67,9 @@ namespace GMR.Core.Heroes
             if (_basic != null && _basic.Cooldown > 0f)
                 UnityEngine.Debug.LogWarning($"[GMR/Abilities] {name}: '{_basic.name}' is in the Basic slot; its " +
                                              $"{_basic.Cooldown}s cooldown is forced to 0 there.", this);
+            // Ultimate feedback and the RAGE rule (Ultimate hits do not refill RAGE) key off the Ultimate damage tag.
+            if (_ultimate != null && (_ultimate.DamageTags & DamageTags.Ultimate) == 0)
+                UnityEngine.Debug.LogWarning($"[GMR/Abilities] {name}: Ultimate '{_ultimate.name}' lacks the Ultimate damage tag.", this);
         }
     }
 }

@@ -16,6 +16,12 @@ namespace GMR.Core.Encounter
         public bool? Hitstop;
         public bool? ScreenShake;
 
+        /// <summary>Shrinking Combo Window (FR-14): true = Shrinking, false = Fixed, null = ComboConfig.Mode.</summary>
+        public bool? ShrinkingComboWindow;
+
+        /// <summary>RAGE decay (debug): null = RageConfig.DecayEnabled.</summary>
+        public bool? RageDecay;
+
         /// <summary>Effective value: the override if set, else the config default.</summary>
         public static bool Resolve(bool? overrideValue, bool configDefault) => overrideValue ?? configDefault;
 
@@ -29,6 +35,8 @@ namespace GMR.Core.Encounter
             DamageNumbers = null;
             Hitstop = null;
             ScreenShake = null;
+            ShrinkingComboWindow = null;
+            RageDecay = null;
         }
     }
 }

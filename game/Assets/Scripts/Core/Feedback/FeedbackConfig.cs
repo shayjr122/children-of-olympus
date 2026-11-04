@@ -66,6 +66,20 @@ namespace GMR.Core.Feedback
         [SerializeField, Min(0f), Tooltip("Shake length, real seconds.")] float _shakeDuration = 0.15f;
         [SerializeField, Min(0f), Tooltip("Shake amplitude multiplier when the Player is hit (0 = no shake).")] float _playerHurtShakeScale = 0.6f;
 
+        [Header("Ultimate (FR-17): hits tagged Ultimate")]
+        [SerializeField, Min(0f), Tooltip("Hitstop for Ultimate hits, real seconds (0 = none; respects the Hitstop toggle).")]
+        float _ultimateHitstop = 0.15f;
+
+        [SerializeField, Min(0f), Tooltip("Camera shake amplitude when an Ultimate's hits land, units.")] float _ultimateShakeAmplitude = 0.4f;
+        [SerializeField, Min(0f), Tooltip("Ultimate camera shake length, real seconds.")] float _ultimateShakeDuration = 0.5f;
+        [SerializeField, Tooltip("Full-screen flash when an Ultimate's hits land.")] bool _ultimateFlash = true;
+        [SerializeField] Color _ultimateFlashColor = new Color(0.75f, 0.9f, 1f, 0.55f);
+        [SerializeField, Min(0f), Tooltip("Ultimate screen flash fade, real seconds.")] float _ultimateFlashDuration = 0.35f;
+        [SerializeField] Color _ultimateBoltColor = new Color(0.7f, 0.9f, 1f, 1f);
+        [SerializeField, Min(0f), Tooltip("Lightning bolt placeholder lifetime per struck enemy, real seconds.")] float _ultimateBoltDuration = 0.35f;
+        [SerializeField, Tooltip("Ring shown around the Hero during the Ultimate's startup (charge-up).")] Color _ultimateChargeColor = new Color(1f, 0.9f, 0.4f, 0.8f);
+        [SerializeField, Tooltip("'NOT READY' popup color when the Ultimate is pressed below full RAGE.")] Color _ultimateNotReadyColor = new Color(1f, 0.45f, 0.4f, 1f);
+
         [Header("SFX hooks (placeholder: silent unless clips are assigned on SfxHookPlayer)")]
         [SerializeField] bool _sfxHooks = true;
         [SerializeField, Tooltip("Log every fired SFX cue to the Console.")] bool _logSfxCues;
@@ -100,11 +114,26 @@ namespace GMR.Core.Feedback
         public float ShakeDuration { get => _shakeDuration; internal set => _shakeDuration = value; }
         public float PlayerHurtShakeScale { get => _playerHurtShakeScale; internal set => _playerHurtShakeScale = value; }
 
+        public float UltimateHitstop { get => _ultimateHitstop; internal set => _ultimateHitstop = value; }
+        public float UltimateShakeAmplitude { get => _ultimateShakeAmplitude; internal set => _ultimateShakeAmplitude = value; }
+        public float UltimateShakeDuration { get => _ultimateShakeDuration; internal set => _ultimateShakeDuration = value; }
+        public bool UltimateFlash { get => _ultimateFlash; internal set => _ultimateFlash = value; }
+        public Color UltimateFlashColor { get => _ultimateFlashColor; internal set => _ultimateFlashColor = value; }
+        public float UltimateFlashDuration { get => _ultimateFlashDuration; internal set => _ultimateFlashDuration = value; }
+        public Color UltimateBoltColor { get => _ultimateBoltColor; internal set => _ultimateBoltColor = value; }
+        public float UltimateBoltDuration { get => _ultimateBoltDuration; internal set => _ultimateBoltDuration = value; }
+        public Color UltimateChargeColor { get => _ultimateChargeColor; internal set => _ultimateChargeColor = value; }
+        public Color UltimateNotReadyColor { get => _ultimateNotReadyColor; internal set => _ultimateNotReadyColor = value; }
+
         public bool SfxHooks { get => _sfxHooks; internal set => _sfxHooks = value; }
         public bool LogSfxCues { get => _logSfxCues; internal set => _logSfxCues = value; }
 
         /// <summary>Hitstop length for a hit of <paramref name="weight"/>, in real seconds (0 = none).</summary>
         public float HitstopDuration(HitWeight weight) =>
             Mathf.Max(0f, weight == HitWeight.Heavy ? _hitstopHeavy : _hitstopLight);
+
+        /// <summary>Hitstop for a hit with <paramref name="tags"/>: the Ultimate hitstop for Ultimate hits, else by weight.</summary>
+        public float HitstopDuration(HitWeight weight, DamageTags tags) =>
+            (tags & DamageTags.Ultimate) != 0 ? Mathf.Max(0f, _ultimateHitstop) : HitstopDuration(weight);
     }
 }

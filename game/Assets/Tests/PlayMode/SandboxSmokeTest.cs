@@ -23,7 +23,8 @@ namespace GMR.Tests
     /// DashController), checks a Perfect Dodge against a pending hit and that pause goes through TimeScaleService.
     /// M4b: B closes the menu without firing an ability; Club Strike (X), Thunderbolt (Y) and Storm Whirl (B) each fire
     /// once through the input pipeline and damage training dummies; Special cooldown; dummy death + respawn; Player
-    /// damage with post-hit invulnerability; SFX hooks fire.
+    /// damage with post-hit invulnerability; SFX hooks fire. M5a: Combo on dummies + HUD panel, timeout and damage
+    /// reset, Ultimate not-ready cue, Fill RAGE cheat, Wrath of Zeus on all dummies with RAGE consumed and i-frames.
     /// </summary>
     public sealed class SandboxSmokeTest : InputTestFixture
     {
@@ -51,6 +52,15 @@ namespace GMR.Tests
             yield return null;
             Release(button);
             yield return null;
+        }
+
+        static string Diag(GMR.Runtime.Players.PlayerRoot root)
+        {
+            var h = root.Hero;
+            var cur = h.Abilities.Current;
+            return $"[t={Time.time:0.000} ut={Time.unscaledTime:0.000} f={Time.frameCount} ts={Time.timeScale} " +
+                   $"current={(cur != null ? cur.Slot + "/" + cur.Phase : "none")} dash={h.Dash.Phase} " +
+                   $"rage={root.CombatState.Rage.Value01:0.00} scheme={root.GetComponent<PlayerInput>().currentControlScheme}]";
         }
 
         static IEnumerator Frames(int count)
@@ -206,7 +216,7 @@ namespace GMR.Tests
             yield return Frames(2);
             yield return Tap(_gamepad.buttonNorth);
             yield return new WaitForSeconds(0.7f);
-            Assert.AreEqual(1, used.Count(u => u.Slot == AbilitySlot.Special), "Y should use Thunderbolt once");
+            Assert.AreEqual(1, used.Count(u => u.Slot == AbilitySlot.Special), "Y should use Thunderbolt once. " + Diag(root));
             Assert.IsTrue(hits.Skip(hitsBefore).Any(h => h.Target == front && (h.Result.Tags & DamageTags.Shock) != 0),
                 "the Thunderbolt projectile should hit the first dummy");
             Assert.IsTrue(hitstopRequests.Skip(stopsBefore).All(n => n == 0), "Hitstop toggled off: no time-scale request");
@@ -225,7 +235,7 @@ namespace GMR.Tests
             context.Toggles.InputBuffering = false; // a buffered DASH would fire the moment Recovery starts
             yield return Frames(1);
             yield return Tap(_gamepad.buttonWest);
-            Assert.AreNotEqual(AbilityPhase.Ready, basic.Phase);
+            Assert.AreNotEqual(AbilityPhase.Ready, basic.Phase, Diag(root));
             Press(_gamepad.buttonSouth);
             yield return null;
             Release(_gamepad.buttonSouth);
@@ -289,6 +299,142 @@ namespace GMR.Tests
             Assert.IsTrue(slams[0].Result.Source.IsEnemy);
             Assert.AreEqual(10f, slams[0].Result.Dealt, 1e-4f);
             Assert.IsTrue(root.Hero != null);
+
+            yield return ComboRageAndUltimate(context, root, front, cues);
+        }
+
+        /// <summary>
+        /// M5a: Combo builds on a dummy through real Club Strikes and shows on the Player's HUD panel; it times out and
+        /// resets on damage; session toggles reach Combo/RAGE; Ultimate (RT) below full RAGE only plays the not-ready cue;
+        /// the pause-menu "Fill RAGE" cheat fills RAGE; a full-RAGE press during an ability is queued and then fires Wrath
+        /// of Zeus on every dummy, consuming RAGE and granting startup i-frames; the new SFX hooks fire.
+        /// </summary>
+        IEnumerator ComboRageAndUltimate(GMR.Core.Encounter.EncounterContext context, GMR.Runtime.Players.PlayerRoot root,
+            IDamageable front, List<SfxCue> cues)
+        {
+            var hero = root.Hero;
+            var state = root.CombatState;
+            Assert.IsNotNull(state, "PlayerRoot hosts the PlayerCombatState");
+
+            // Per-Player HUD: exactly one panel, bound to Player 0.
+            var hud = Object.FindAnyObjectByType<CombatHud>();
+            Assert.IsNotNull(hud, "CombatHud missing from Sandbox");
+            Assert.AreEqual(1, hud.Panels.Count, "one HUD panel per joined Player");
+            var panel = hud.PanelFor(root);
+            Assert.IsNotNull(panel);
+
+            // Away from the dummy attackers; let any earlier Combo time out.
+            Teleport(hero, new Vector2(-6f, 0f));
+            yield return new WaitForSeconds(2.3f);
+            Assert.AreEqual(0, state.Combo.Count, "Combo times out after its window");
+
+            var resets = new List<GMR.Core.Combo.ComboReset>();
+            context.Events.OnComboReset += resets.Add;
+            float rageBefore = state.Rage.Value01;
+
+            // Three Club Strikes in a row on the front dummy: Combo x3, RAGE +2% each.
+            for (int i = 0; i < 3; i++)
+            {
+                Teleport(hero, front.Position + new Vector2(-1f, 0f));
+                root.Aim.Update(Vector2.right, false, false);
+                yield return Frames(2);
+                yield return Tap(_gamepad.buttonWest);
+                yield return new WaitForSeconds(0.45f);
+            }
+            Assert.AreEqual(3, state.Combo.Count, "each Club Strike hit adds 1 to the Combo");
+            Assert.Greater(state.Rage.Value01, rageBefore, "hits fill RAGE");
+            yield return Frames(1);
+            Assert.AreEqual("x3", panel.ComboText, "the HUD shows the Combo");
+
+            // No hit for longer than the 2.0 s window: PlayerRoot ticks the Combo and it times out.
+            Teleport(hero, new Vector2(-6f, 0f));
+            yield return new WaitForSeconds(2.1f);
+            Assert.AreEqual(0, state.Combo.Count, "the Combo times out in game");
+            Assert.IsTrue(resets.Any(r => r.Reason == GMR.Core.Combo.ComboResetReason.Timeout && r.FinalCount == 3));
+
+            // One more hit, then taking damage resets the Combo immediately.
+            Teleport(hero, front.Position + new Vector2(-1f, 0f));
+            root.Aim.Update(Vector2.right, false, false);
+            yield return Frames(2);
+            yield return Tap(_gamepad.buttonWest);
+            yield return new WaitForSeconds(0.45f);
+            Assert.AreEqual(1, state.Combo.Count);
+            var enemySource = SourceId.ForEnemy(new GMR.Core.Enemies.EnemyId(98));
+            Teleport(hero, new Vector2(-6f, 0f));
+            context.Damage.Apply(root.Damageable, new DamageRequest(enemySource, 1f, DamageTags.Physical, Vector2.zero,
+                default, context.Damage.NextHitId()), Time.time);
+            Assert.AreEqual(0, state.Combo.Count);
+            Assert.IsTrue(resets.Any(r => r.Reason == GMR.Core.Combo.ComboResetReason.Damage && r.FinalCount == 1));
+            Assert.IsTrue(cues.Contains(SfxCue.ComboLost), "Combo lost SFX hook on a damage reset");
+
+            // Pause-menu session toggles reach the Player's Combo and RAGE through PlayerRoot.
+            context.Toggles.ShrinkingComboWindow = true;
+            context.Toggles.RageDecay = false;
+            yield return Frames(1);
+            Assert.AreEqual(GMR.Core.Combo.ComboMode.Shrinking, state.Combo.Mode);
+            Assert.IsFalse(state.Rage.DecayOn);
+            context.Toggles.ShrinkingComboWindow = false;
+            yield return Frames(1);
+            Assert.AreEqual(GMR.Core.Combo.ComboMode.Fixed, state.Combo.Mode);
+            context.Toggles.ClearOverrides();
+            yield return Frames(1);
+            Assert.AreEqual(state.Combo.Config.Mode, state.Combo.Mode);
+            Assert.IsTrue(state.Rage.DecayOn, "config default: RAGE decays");
+
+            // Ultimate below full RAGE: nothing fires, "not ready" cue.
+            var used = new List<UltimateUsed>();
+            var notReady = new List<UltimateNotReady>();
+            context.Events.OnUltimateUsed += used.Add;
+            context.Events.OnUltimateNotReady += notReady.Add;
+            Assert.IsFalse(state.Rage.IsFull);
+            yield return Tap(_gamepad.rightTrigger);
+            yield return Frames(2);
+            Assert.IsEmpty(used, "no Ultimate below 100% RAGE");
+            Assert.AreEqual(1, notReady.Count, "not-ready cue");
+            Assert.IsTrue(cues.Contains(SfxCue.UltimateNotReady));
+
+            // Fill RAGE through the pause-menu cheat (DevTools button), then resume.
+            var pause = Object.FindAnyObjectByType<PauseController>();
+            yield return Tap(_gamepad.startButton);
+            Assert.IsTrue(pause.IsOpen);
+            var fillButton = Object.FindObjectsByType<UnityEngine.UI.Button>(FindObjectsInactive.Include)
+                .FirstOrDefault(b => b.name.StartsWith("Fill RAGE"));
+            Assert.IsNotNull(fillButton, "Fill RAGE cheat button missing from the pause menu");
+            fillButton.onClick.Invoke();
+            Assert.IsTrue(state.Rage.IsFull, "Fill RAGE fills the meter");
+            Assert.IsTrue(cues.Contains(SfxCue.RageFull));
+            yield return Tap(_gamepad.startButton);
+            Assert.IsFalse(pause.IsOpen);
+            yield return Frames(1);
+            StringAssert.Contains("READY", panel.RageText, "HUD shows the full RAGE state");
+
+            // Ultimate at full RAGE pressed during a Club Strike: queued, then fires once the strike ends. Wrath of
+            // Zeus hits every dummy, RAGE consumed, startup i-frames.
+            var hits = new List<HitLanded>();
+            context.Events.OnHitLanded += hits.Add;
+            var abilities = hero.GetComponent<GMR.Runtime.Abilities.AbilityController>();
+            Teleport(hero, front.Position + new Vector2(-1f, 0f));
+            root.Aim.Update(Vector2.right, false, false);
+            yield return Frames(1);
+            yield return Tap(_gamepad.buttonWest);
+            Assert.IsNotNull(hero.Abilities.Current, "Club Strike running");
+            Press(_gamepad.rightTrigger);
+            yield return null;
+            Release(_gamepad.rightTrigger);
+            Assert.IsEmpty(used, "the Ultimate waits for the running ability");
+            Assert.IsTrue(abilities.UltimateQueued, "the full-RAGE press is queued, not dropped");
+            float until = Time.time + 1.5f; // scaled time: hitstop slows the Club Strike in real frames
+            while (used.Count == 0 && Time.time < until) yield return null;
+            Assert.AreEqual(1, used.Count, "the queued press fires the Ultimate once the Hero is free. " + Diag(root));
+            Assert.AreEqual("heracles_wrath_of_zeus", used[0].Ability.Id);
+            Assert.AreEqual(0f, state.Rage.Value01, "RAGE consumed to 0");
+            Assert.IsTrue(hero.Invulnerability.IsInvulnerableFrom(InvulnerabilitySource.UltimateStartup, used[0].At),
+                "i-frames cover the Ultimate startup");
+            Assert.IsTrue(cues.Contains(SfxCue.UltimateUsed));
+            yield return new WaitForSeconds(0.8f);
+            var struck = hits.Where(h => (h.Result.Tags & DamageTags.Ultimate) != 0).Select(h => h.TargetId).Distinct().Count();
+            Assert.AreEqual(3, struck, "Wrath of Zeus strikes all three training dummies");
+            Assert.AreEqual(1, used.Count);
         }
     }
 }

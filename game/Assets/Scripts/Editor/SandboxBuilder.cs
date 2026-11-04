@@ -3,9 +3,11 @@ using System.IO;
 using System.Linq;
 using GMR.Core.Abilities;
 using GMR.Core.Combat;
+using GMR.Core.Combo;
 using GMR.Core.Controls;
 using GMR.Core.Feedback;
 using GMR.Core.Heroes;
+using GMR.Core.Rage;
 using GMR.Core.Status;
 using GMR.DevTools;
 using GMR.Runtime.Abilities;
@@ -27,10 +29,10 @@ using Object = UnityEngine.Object;
 namespace GMR.Editor
 {
     /// <summary>
-    /// Generates the Sandbox content (Epics 2 and 3): layers and the Physics2D layer matrix, placeholder sprites,
-    /// Config/Definition assets (Heracles' kit, health, projectile, Shock stub), the PlayerRoot, Hero and Projectile
-    /// prefabs and the Sandbox scene (walls, two dummy attackers, three training dummies, feedback, cooldown readout,
-    /// controls hint, pause/debug menu). Idempotent: existing Config/Definition assets are kept (tuning and slot edits
+    /// Generates the Sandbox content (Epics 2-4): layers and the Physics2D layer matrix, placeholder sprites,
+    /// Config/Definition assets (Heracles' kit incl. Wrath of Zeus, health, projectile, Shock stub, Combo and RAGE
+    /// configs), the PlayerRoot, Hero and Projectile prefabs and the Sandbox scene (walls, two dummy attackers, three
+    /// training dummies, feedback incl. Ultimate visuals, per-Player combat HUD, controls hint, pause/debug menu). Idempotent: existing Config/Definition assets are kept (tuning and slot edits
     /// survive; empty Hero fields are filled), prefabs and the scene contents are rebuilt.
     /// Batchmode: unity run game -- -executeMethod GMR.Editor.SandboxBuilder.BuildAll
     /// </summary>
@@ -99,8 +101,11 @@ namespace GMR.Editor
                 SetAll(bolt, ("_speed", 14f), ("_lifetime", 0.8f), ("_radius", 0.2f), ("_pierce", 0),
                     ("_color", new Color(0.55f, 0.85f, 1f, 1f)));
             var (clubStrike, thunderbolt, stormWhirl) = EnsureHeraclesKit(shock, bolt);
+            var wrathOfZeus = EnsureWrathOfZeus(shock);
+            var combo = EnsureAsset<ComboConfig>(ConfigDir + "/Config_Combo.asset");
+            var rage = EnsureAsset<RageConfig>(ConfigDir + "/Config_Rage_Heracles.asset");
             // Re-serialize existing tuning assets so fields added by later stories appear in the files (defaults kept).
-            foreach (var asset in new Object[] { move, dash, aim, input, feedback, dummyConfig, trainingConfig })
+            foreach (var asset in new Object[] { move, dash, aim, input, feedback, dummyConfig, trainingConfig, combo, rage })
                 EditorUtility.SetDirty(asset);
 
             var hero = EnsureAsset<HeroDefinition>(HeroesDir + "/Hero_Heracles.asset", out bool heroCreated);
@@ -117,6 +122,8 @@ namespace GMR.Editor
             SetIfEmpty(hero, "_basic", clubStrike);
             SetIfEmpty(hero, "_special", thunderbolt);
             SetIfEmpty(hero, "_signature", stormWhirl);
+            SetIfEmpty(hero, "_ultimate", wrathOfZeus);
+            SetIfEmpty(hero, "_rage", rage);
             SetIfEmpty(hero, "_primaryStatus", shock);
 
             var controls = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ControlsPath)
@@ -124,13 +131,13 @@ namespace GMR.Editor
 
             var projectilePrefab = BuildProjectilePrefab(circle);
             var heroPrefab = BuildHeroPrefab(square, circle, ring, arrow, projectilePrefab);
-            var playerPrefab = BuildPlayerRootPrefab(controls, hero, heroPrefab, input, aim);
+            var playerPrefab = BuildPlayerRootPrefab(controls, hero, heroPrefab, input, aim, combo);
             BuildScene(scene, controls, playerPrefab, square, circle, ring, aim, input, feedback, dummyConfig,
-                trainingConfig, dummyHealth);
+                trainingConfig, dummyHealth, combo, rage);
             EnsureSceneInBuildSettings();
 
             AssetDatabase.SaveAssets();
-            UnityEngine.Debug.Log("[GMR/Editor] Sandbox rebuilt (M4b).");
+            UnityEngine.Debug.Log("[GMR/Editor] Sandbox rebuilt (M5a).");
         }
 
         // ---------------------------------------------------------------- project setup
@@ -192,6 +199,21 @@ namespace GMR.Editor
                     ("_knockback", 7f), ("_rootsCaster", false), ("_status", shock), ("_statusStacks", 1),
                     ("_color", new Color(0.6f, 0.85f, 1f, 0.35f)));
             return (club, bolt, whirl);
+        }
+
+        /// <summary>Heracles' Ultimate (FR-17): lightning on every enemy; the Shock payload goes to the Status hook (Epic 5).</summary>
+        static AbilityDefinition EnsureWrathOfZeus(StatusDefinition shock)
+        {
+            var wrath = EnsureAsset<AbilityDefinition>(AbilitiesDir + "/Ability_Heracles_WrathOfZeus.asset", out bool created);
+            if (created)
+                SetAll(wrath, ("_id", "heracles_wrath_of_zeus"), ("_displayName", "Wrath of Zeus"),
+                    ("_attackType", (int)AttackType.Shot), ("_hitShape", (int)HitShape.AllEnemies),
+                    ("_range", 0f), ("_width", 0f), ("_forwardOffset", 0f),
+                    ("_startup", 0.35f), ("_active", 0.1f), ("_recovery", 0.4f), ("_cooldown", 0f),
+                    ("_damage", 100f), ("_damageTags", (int)(DamageTags.Shock | DamageTags.Ultimate)),
+                    ("_hitWeight", (int)HitWeight.Heavy), ("_knockback", 8f), ("_rootsCaster", true),
+                    ("_status", shock), ("_statusStacks", 1), ("_color", new Color(0.7f, 0.9f, 1f, 0.6f)));
+            return wrath;
         }
 
         static void EnsureSceneInBuildSettings()
@@ -350,7 +372,7 @@ namespace GMR.Editor
         }
 
         static GameObject BuildPlayerRootPrefab(InputActionAsset controls, HeroDefinition hero, HeroRuntime heroPrefab,
-            InputConfig input, AimConfig aim)
+            InputConfig input, AimConfig aim, ComboConfig combo)
         {
             var root = new GameObject("PlayerRoot");
             // Order matters: PlayerRoot and the reader must exist before PlayerInput announces the join.
@@ -364,6 +386,7 @@ namespace GMR.Editor
             Set(playerRoot, "_heroPrefab", heroPrefab);
             Set(playerRoot, "_inputConfig", input);
             Set(playerRoot, "_aimConfig", aim);
+            Set(playerRoot, "_comboConfig", combo);
 
             var so = new SerializedObject(playerInput);
             so.FindProperty("m_Actions").objectReferenceValue = controls;
@@ -394,7 +417,7 @@ namespace GMR.Editor
 
         static void BuildScene(UnityEngine.SceneManagement.Scene scene, InputActionAsset controls, GameObject playerPrefab, Sprite square, Sprite circle, Sprite ring,
             AimConfig aim, InputConfig input, FeedbackConfig feedback, DummyAttackerConfig dummyConfig,
-            TrainingDummyConfig trainingConfig, HealthConfig dummyHealth)
+            TrainingDummyConfig trainingConfig, HealthConfig dummyHealth, ComboConfig combo, RageConfig rage)
         {
             Camera camera = null;
             foreach (var go in scene.GetRootGameObjects())
@@ -433,6 +456,8 @@ namespace GMR.Editor
 
             var flash = UiImage(canvas.transform, "Flash", new Color(1f, 1f, 1f, 0f));
             Stretch(flash.rectTransform);
+            var ultimateFlash = UiImage(canvas.transform, "UltimateFlash", new Color(0.75f, 0.9f, 1f, 0f));
+            Stretch(ultimateFlash.rectTransform);
 
             var popupsRoot = new GameObject("Popups", typeof(RectTransform));
             popupsRoot.transform.SetParent(canvas.transform, false);
@@ -444,7 +469,7 @@ namespace GMR.Editor
 
             var help = UiText(canvas.transform, "ControlsHint", font,
                 "Move: L-stick / WASD    DASH: A / Space    Direction Lock (hold): LT / Left Shift\n" +
-                "Club Strike: X / J / LMB    Thunderbolt: Y / K / RMB    Storm Whirl: B / E\n" +
+                "Club Strike: X / J / LMB    Thunderbolt: Y / K / RMB    Storm Whirl: B / E    Wrath of Zeus (RAGE full): RT / R\n" +
                 "Pause + debug menu: Start / Esc  (or Select / F1)    Menu: D-pad / stick / arrows, A / Enter, back: B / Esc",
                 9, TextAnchor.LowerLeft, new Color(1f, 1f, 1f, 0.8f));
             var helpRect = help.rectTransform;
@@ -452,14 +477,7 @@ namespace GMR.Editor
             helpRect.anchoredPosition = new Vector2(6f, 4f);
             helpRect.sizeDelta = new Vector2(620f, 40f);
 
-            var readout = UiText(canvas.transform, "CooldownReadout", font, "", 10, TextAnchor.UpperLeft, Color.white);
-            var readoutRect = readout.rectTransform;
-            readoutRect.anchorMin = readoutRect.anchorMax = readoutRect.pivot = new Vector2(0f, 1f);
-            readoutRect.anchoredPosition = new Vector2(6f, -4f);
-            readoutRect.sizeDelta = new Vector2(620f, 30f);
-            var readoutView = readout.gameObject.AddComponent<AbilityCooldownReadout>();
-            Set(readoutView, "_bootstrap", bootstrap);
-            Set(readoutView, "_text", readout);
+            BuildCombatHud(canvas.transform, font, bootstrap);
 
             var feedbackGo = new GameObject("Feedback");
             var popups = feedbackGo.AddComponent<PopupSpawner>();
@@ -483,10 +501,17 @@ namespace GMR.Editor
             Set(router, "_popups", popups);
             Set(router, "_cameraShake", cameraShake);
             Set(router, "_sfx", sfx);
+            var ultimateFx = feedbackGo.AddComponent<UltimateFeedback>();
+            Set(ultimateFx, "_bootstrap", bootstrap);
+            Set(ultimateFx, "_config", feedback);
+            Set(ultimateFx, "_flash", ultimateFlash);
+            Set(ultimateFx, "_square", square);
+            Set(ultimateFx, "_circle", circle);
+            Set(ultimateFx, "_ring", ring);
 
             var pauseGo = new GameObject("PauseController");
             var pause = pauseGo.AddComponent<PauseController>();
-            BuildPauseMenu(canvas.transform, font, pause, bootstrap, driver, eventSystem, aim, input, feedback);
+            BuildPauseMenu(canvas.transform, font, pause, bootstrap, driver, eventSystem, aim, input, feedback, combo, rage);
 
             BuildDummy("DummyAttacker_A", new Vector2(5f, 2.6f), 0f, bootstrap, dummyConfig, square, circle, ring);
             BuildDummy("DummyAttacker_B", new Vector2(-1.5f, -3.4f), 0.9f, bootstrap, dummyConfig, square, circle, ring);
@@ -623,41 +648,49 @@ namespace GMR.Editor
         }
 
         static void BuildPauseMenu(Transform canvas, Font font, PauseController pause, EncounterBootstrap bootstrap,
-            TimeScaleServiceDriver driver, EventSystem eventSystem, AimConfig aim, InputConfig input, FeedbackConfig feedback)
+            TimeScaleServiceDriver driver, EventSystem eventSystem, AimConfig aim, InputConfig input, FeedbackConfig feedback,
+            ComboConfig combo, RageConfig rage)
         {
             var dim = UiImage(canvas, "PauseMenu", new Color(0f, 0f, 0f, 0.6f));
             Stretch(dim.rectTransform);
             dim.raycastTarget = true;
 
             var panel = UiImage(dim.transform, "Panel", new Color(0.1f, 0.1f, 0.15f, 0.95f));
-            panel.rectTransform.sizeDelta = new Vector2(280f, 340f);
+            // 392 tall: fits the 400 px reference height with Resume, 10 toggles and the Fill RAGE cheat.
+            panel.rectTransform.sizeDelta = new Vector2(280f, 392f);
 
-            var title = UiText(panel.transform, "Title", font, "PAUSED", 18, TextAnchor.MiddleCenter, Color.white);
+            var title = UiText(panel.transform, "Title", font, "PAUSED", 16, TextAnchor.MiddleCenter, Color.white);
             title.fontStyle = FontStyle.Bold;
-            Place(title.rectTransform, 0f, 145f, 260f, 26f);
+            Place(title.rectTransform, 0f, 178f, 260f, 22f);
 
-            var resume = BuildButton(panel.transform, font, "Resume", 112f);
+            var resume = BuildButton(panel.transform, font, "Resume", 154f);
             UnityEventTools.AddPersistentListener(resume.onClick, pause.Close);
 
             var header = UiText(panel.transform, "DebugHeader", font, "Debug toggles (session only)", 10, TextAnchor.MiddleCenter,
                 new Color(1f, 1f, 1f, 0.6f));
-            Place(header.rectTransform, 0f, 88f, 260f, 16f);
+            Place(header.rectTransform, 0f, 134f, 260f, 14f);
 
-            var aimAssist = BuildToggle(panel.transform, font, "Aim Assist", 66f);
-            var dirLock = BuildToggle(panel.transform, font, "Direction Lock", 42f);
-            var buffer = BuildToggle(panel.transform, font, "Input buffer", 18f);
-            var pdFlash = BuildToggle(panel.transform, font, "Perfect Dodge flash", -6f);
-            var pdSlow = BuildToggle(panel.transform, font, "Perfect Dodge time-slow", -30f);
-            var damageNumbers = BuildToggle(panel.transform, font, "Damage numbers", -54f);
-            var hitstop = BuildToggle(panel.transform, font, "Hitstop", -78f);
-            var shake = BuildToggle(panel.transform, font, "Screen shake", -102f);
+            const float step = 22f;
+            float y = 114f;
+            var aimAssist = BuildToggle(panel.transform, font, "Aim Assist", y);
+            var dirLock = BuildToggle(panel.transform, font, "Direction Lock", y -= step);
+            var buffer = BuildToggle(panel.transform, font, "Input buffer", y -= step);
+            var pdFlash = BuildToggle(panel.transform, font, "Perfect Dodge flash", y -= step);
+            var pdSlow = BuildToggle(panel.transform, font, "Perfect Dodge time-slow", y -= step);
+            var damageNumbers = BuildToggle(panel.transform, font, "Damage numbers", y -= step);
+            var hitstop = BuildToggle(panel.transform, font, "Hitstop", y -= step);
+            var shake = BuildToggle(panel.transform, font, "Screen shake", y -= step);
+            var shrinking = BuildToggle(panel.transform, font, "Shrinking Combo window", y -= step);
+            var rageDecay = BuildToggle(panel.transform, font, "RAGE decay", y -= step);
+            var fillRage = BuildButton(panel.transform, font, "Fill RAGE (cheat)", y -= step + 4f);
 
             var footer = UiText(panel.transform, "Footer", font,
                 "Navigate: D-pad / stick / arrows    Toggle: A / Enter\nClose: Start / Esc / B (back)",
                 9, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
-            Place(footer.rectTransform, 0f, -142f, 260f, 26f);
+            Place(footer.rectTransform, 0f, -178f, 260f, 26f);
 
-            var items = new UnityEngine.UI.Selectable[] { resume, aimAssist, dirLock, buffer, pdFlash, pdSlow, damageNumbers, hitstop, shake };
+            var items = new UnityEngine.UI.Selectable[]
+                { resume, aimAssist, dirLock, buffer, pdFlash, pdSlow, damageNumbers, hitstop, shake, shrinking, rageDecay, fillRage };
             LinkVertical(items);
             foreach (var item in items)
             {
@@ -670,6 +703,11 @@ namespace GMR.Editor
             Set(panelTools, "_aimConfig", aim);
             Set(panelTools, "_inputConfig", input);
             Set(panelTools, "_feedbackConfig", feedback);
+            Set(panelTools, "_comboConfig", combo);
+            Set(panelTools, "_rageConfig", rage);
+            Set(panelTools, "_shrinkingCombo", shrinking);
+            Set(panelTools, "_rageDecay", rageDecay);
+            Set(panelTools, "_fillRage", fillRage);
             Set(panelTools, "_aimAssist", aimAssist);
             Set(panelTools, "_directionLock", dirLock);
             Set(panelTools, "_inputBuffer", buffer);
@@ -687,6 +725,135 @@ namespace GMR.Editor
 
             dim.gameObject.SetActive(false);
         }
+
+        // ---------------------------------------------------------------- combat HUD (Story 4.3)
+
+        static readonly Color HudDark = new Color(0f, 0f, 0f, 0.55f);
+
+        /// <summary>
+        /// CombatHud with an inactive 232x80 panel template (reference pixels at 640x400; x2 at 1280x800). Layout from
+        /// the panel's top-left: title + seed, HP bar, RAGE meter, three slot boxes on the left; Combo on the right.
+        /// </summary>
+        static void BuildCombatHud(Transform canvas, Font font, EncounterBootstrap bootstrap)
+        {
+            var hudRoot = new GameObject("CombatHud", typeof(RectTransform));
+            hudRoot.transform.SetParent(canvas, false);
+            Stretch((RectTransform)hudRoot.transform);
+            hudRoot.transform.SetSiblingIndex(0); // under popups, flashes and the pause menu
+
+            var panelGo = new GameObject("HudPanelTemplate", typeof(RectTransform));
+            panelGo.transform.SetParent(hudRoot.transform, false);
+            var panelRect = (RectTransform)panelGo.transform;
+            panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = new Vector2(0f, 1f);
+            panelRect.sizeDelta = new Vector2(232f, 80f);
+            var background = panelGo.AddComponent<UnityEngine.UI.Image>();
+            background.color = new Color(0.05f, 0.05f, 0.08f, 0.55f);
+            background.raycastTarget = false;
+            var panel = panelGo.AddComponent<PlayerHudPanel>();
+
+            var title = HudText(panelGo.transform, "Title", font, "P1  HERACLES", 10, TextAnchor.MiddleLeft, Color.white, 4f, -2f, 116f, 12f);
+            title.fontStyle = FontStyle.Bold;
+            var seed = HudText(panelGo.transform, "Seed", font, "SEED -", 7, TextAnchor.MiddleRight, new Color(1f, 1f, 1f, 0.5f), 120f, -2f, 108f, 10f);
+
+            HudText(panelGo.transform, "HpLabel", font, "HP", 8, TextAnchor.MiddleLeft, Color.white, 4f, -15f, 16f, 10f);
+            var hpBack = HudImage(panelGo.transform, "HpBar", HudDark, 20f, -16f, 100f, 8f);
+            var hpFill = FillChild(hpBack.transform, "Fill", new Color(0.35f, 0.9f, 0.35f, 1f));
+            var hpText = HudText(panelGo.transform, "HpText", font, "100/100", 8, TextAnchor.MiddleLeft, Color.white, 124f, -15f, 36f, 10f);
+
+            var rageFrame = HudImage(panelGo.transform, "RageFrame", new Color(0f, 0f, 0f, 0.6f), 4f, -28f, 154f, 15f);
+            var rageBack = HudImage(rageFrame.transform, "RageBar", new Color(0.12f, 0.05f, 0.05f, 0.9f), 1f, -1f, 152f, 13f);
+            var rageFill = FillChild(rageBack.transform, "Fill", new Color(0.85f, 0.25f, 0.15f, 1f));
+            rageFill.rectTransform.anchorMax = new Vector2(0f, 1f);
+            var rageLabel = HudText(rageBack.transform, "Label", font, "RAGE 0%", 9, TextAnchor.MiddleCenter, Color.white, 0f, 0f, 152f, 13f);
+            rageLabel.fontStyle = FontStyle.Bold;
+
+            var slots = new HudSlotView[3];
+            string[] glyphs = { "X", "Y", "B" };
+            for (int i = 0; i < 3; i++)
+            {
+                var box = HudImage(panelGo.transform, "Slot" + glyphs[i], new Color(0.2f, 0.22f, 0.3f, 0.85f), 4f + i * 52f, -47f, 50f, 29f);
+                var overlay = FillChild(box.transform, "Cooldown", new Color(0f, 0f, 0f, 0.6f));
+                overlay.rectTransform.anchorMax = new Vector2(1f, 0f); // anchorMax.y = cooldown remaining fraction
+                var name = HudText(box.transform, "Name", font, glyphs[i], 8, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.85f), 0f, -1f, 50f, 11f);
+                var value = HudText(box.transform, "Value", font, "READY", 9, TextAnchor.MiddleCenter, Color.white, 0f, -13f, 50f, 14f);
+                value.fontStyle = FontStyle.Bold;
+                slots[i] = new HudSlotView { Glyph = glyphs[i], Name = name, Value = value, CooldownOverlay = overlay.rectTransform, Background = box };
+            }
+
+            HudText(panelGo.transform, "ComboLabel", font, "COMBO", 8, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f), 162f, -14f, 66f, 10f);
+            var comboCount = HudText(panelGo.transform, "ComboCount", font, "x0", 20, TextAnchor.MiddleCenter, Color.white, 162f, -24f, 66f, 22f);
+            comboCount.fontStyle = FontStyle.Bold;
+            var comboBack = HudImage(panelGo.transform, "ComboWindow", HudDark, 166f, -48f, 58f, 5f);
+            var comboFill = FillChild(comboBack.transform, "Fill", new Color(1f, 0.85f, 0.35f, 1f));
+            comboFill.rectTransform.anchorMax = new Vector2(0f, 1f);
+            var resetCue = HudText(panelGo.transform, "ResetCue", font, "", 8, TextAnchor.MiddleCenter, new Color(1f, 0.3f, 0.25f, 1f), 162f, -56f, 66f, 12f);
+            resetCue.fontStyle = FontStyle.Bold;
+
+            Set(panel, "_title", title);
+            Set(panel, "_seed", seed);
+            Set(panel, "_hpFill", hpFill.rectTransform);
+            Set(panel, "_hpFillImage", hpFill);
+            Set(panel, "_hpText", hpText);
+            Set(panel, "_comboCount", comboCount);
+            Set(panel, "_comboWindowFill", comboFill.rectTransform);
+            Set(panel, "_comboWindowImage", comboFill);
+            Set(panel, "_comboResetCue", resetCue);
+            Set(panel, "_rageFill", rageFill.rectTransform);
+            Set(panel, "_rageFillImage", rageFill);
+            Set(panel, "_rageFrame", rageFrame);
+            Set(panel, "_rageLabel", rageLabel);
+            var so = new SerializedObject(panel);
+            var slotsProp = so.FindProperty("_slots");
+            slotsProp.arraySize = slots.Length;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var e = slotsProp.GetArrayElementAtIndex(i);
+                e.FindPropertyRelative("Glyph").stringValue = slots[i].Glyph;
+                e.FindPropertyRelative("Name").objectReferenceValue = slots[i].Name;
+                e.FindPropertyRelative("Value").objectReferenceValue = slots[i].Value;
+                e.FindPropertyRelative("CooldownOverlay").objectReferenceValue = slots[i].CooldownOverlay;
+                e.FindPropertyRelative("Background").objectReferenceValue = slots[i].Background;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            panelGo.SetActive(false);
+
+            var hud = hudRoot.AddComponent<CombatHud>();
+            Set(hud, "_bootstrap", bootstrap);
+            Set(hud, "_container", hudRoot.transform);
+            Set(hud, "_template", panel);
+        }
+
+        /// <summary>Top-left anchored rect at (x, y) from the parent's top-left, size (w, h), reference pixels.</summary>
+        static void TopLeft(RectTransform rect, float x, float y, float w, float h)
+        {
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(w, h);
+        }
+
+        static UnityEngine.UI.Image HudImage(Transform parent, string name, Color color, float x, float y, float w, float h)
+        {
+            var image = UiImage(parent, name, color);
+            TopLeft(image.rectTransform, x, y, w, h);
+            return image;
+        }
+
+        /// <summary>A fill stretched over its parent; PlayerHudPanel moves anchorMax to show a fraction.</summary>
+        static UnityEngine.UI.Image FillChild(Transform parent, string name, Color color)
+        {
+            var image = UiImage(parent, name, color);
+            Stretch(image.rectTransform);
+            return image;
+        }
+
+        static UnityEngine.UI.Text HudText(Transform parent, string name, Font font, string content, int size, TextAnchor anchor,
+            Color color, float x, float y, float w, float h)
+        {
+            var text = UiText(parent, name, font, content, size, anchor, color);
+            TopLeft(text.rectTransform, x, y, w, h);
+            return text;
+        }
+
 
         static UnityEngine.UI.ColorBlock RowColors() => new UnityEngine.UI.ColorBlock
         {

@@ -1,7 +1,9 @@
 using GMR.Core.Abilities;
 using GMR.Core.Combat;
+using GMR.Core.Combo;
 using GMR.Core.Encounter;
 using GMR.Core.Feedback;
+using GMR.Core.Rage;
 using GMR.Core.Rng;
 using GMR.Runtime.Encounter;
 using UnityEngine;
@@ -11,7 +13,8 @@ namespace GMR.Runtime.Feedback
     /// <summary>
     /// Maps combat events to placeholder feedback through FeedbackConfig (FR-27, AD-11): target flash, hitstop via
     /// TimeScaleService, floating damage numbers, camera shake on heavy hits, Hero red flash on PlayerDamaged, an
-    /// "AVOIDED" popup on HitAvoided and SFX hooks (hit, DASH, Perfect Dodge, ...). Subscribes to CombatEvents only;
+    /// "AVOIDED" popup on HitAvoided, Ultimate hitstop/shake, a "NOT READY" popup when the Ultimate is pressed below full
+    /// RAGE and SFX hooks (hit, DASH, Perfect Dodge, Ultimate, RAGE full, Combo lost, ...). Subscribes to CombatEvents only;
     /// gameplay never calls feedback. Toggles: FeedbackConfig default or pause-menu override.
     /// </summary>
     [DefaultExecutionOrder(100)]
@@ -46,6 +49,10 @@ namespace GMR.Runtime.Feedback
             _events.OnDashStarted += OnDashStarted;
             _events.OnPerfectDodged += OnPerfectDodged;
             _events.OnAbilityUsed += OnAbilityUsed;
+            _events.OnUltimateUsed += OnUltimateUsed;
+            _events.OnUltimateNotReady += OnUltimateNotReady;
+            _events.OnRageFull += OnRageFull;
+            _events.OnComboReset += OnComboReset;
         }
 
         void OnDisable()
@@ -58,16 +65,22 @@ namespace GMR.Runtime.Feedback
             _events.OnDashStarted -= OnDashStarted;
             _events.OnPerfectDodged -= OnPerfectDodged;
             _events.OnAbilityUsed -= OnAbilityUsed;
+            _events.OnUltimateUsed -= OnUltimateUsed;
+            _events.OnUltimateNotReady -= OnUltimateNotReady;
+            _events.OnRageFull -= OnRageFull;
+            _events.OnComboReset -= OnComboReset;
             _events = null;
         }
 
         void OnHitLanded(HitLanded e)
         {
             bool heavy = e.Result.Weight == HitWeight.Heavy;
+            bool ultimate = (e.Result.Tags & DamageTags.Ultimate) != 0;
             if (_config.HitFlash) FlashTarget(e.Target, _config.HitFlashColor, _config.HitFlashDuration);
-            HitstopRule.TryRequest(Context.TimeScale, _config, HitstopOn, e.Result.Weight, Time.unscaledTime);
-            ShowNumber(e.Result.Dealt, e.Position, heavy ? _config.HeavyDamageNumberColor : _config.DamageNumberColor);
-            if (heavy) Shake(1f);
+            HitstopRule.TryRequest(Context.TimeScale, _config, HitstopOn, e.Result.Weight, e.Result.Tags, Time.unscaledTime);
+            ShowNumber(e.Result.Dealt, e.Position, heavy || ultimate ? _config.HeavyDamageNumberColor : _config.DamageNumberColor);
+            if (ultimate) ShakeRaw(_config.UltimateShakeAmplitude, _config.UltimateShakeDuration);
+            else if (heavy) Shake(1f);
             Sfx(heavy ? SfxCue.HeavyHit : SfxCue.Hit, e.Position);
         }
 
@@ -89,6 +102,22 @@ namespace GMR.Runtime.Feedback
         void OnDashStarted(DashStarted e) => Sfx(SfxCue.Dash, e.Position);
         void OnPerfectDodged(PerfectDodged e) => Sfx(SfxCue.PerfectDodge, e.Position);
         void OnAbilityUsed(AbilityUsed e) => Sfx(SfxCue.AbilityUsed, e.Position);
+        void OnUltimateUsed(UltimateUsed e) => Sfx(SfxCue.UltimateUsed, e.Position);
+        void OnRageFull(RageFull e) => Sfx(SfxCue.RageFull, PlayerPosition(e.Player));
+
+        void OnComboReset(ComboReset e)
+        {
+            if (e.Reason == ComboResetReason.Damage) Sfx(SfxCue.ComboLost, PlayerPosition(e.Player));
+        }
+
+        void OnUltimateNotReady(UltimateNotReady e)
+        {
+            if (_popups != null) _popups.Show("NOT READY", e.Position, _config.UltimateNotReadyColor);
+            Sfx(SfxCue.UltimateNotReady, e.Position);
+        }
+
+        Vector2 PlayerPosition(GMR.Core.Players.PlayerId id) =>
+            Context.Players.TryGet(id, out var player) ? player.Position : Vector2.zero;
 
         void ShowNumber(float amount, Vector2 position, Color color)
         {
@@ -98,8 +127,14 @@ namespace GMR.Runtime.Feedback
 
         void Shake(float scale)
         {
-            if (_cameraShake == null || !ShakeOn || scale <= 0f) return;
-            _cameraShake.Shake(_config.ShakeAmplitude * scale, _config.ShakeDuration, Context.Rng.Stream(RngStreams.Feedback));
+            if (scale <= 0f) return;
+            ShakeRaw(_config.ShakeAmplitude * scale, _config.ShakeDuration);
+        }
+
+        void ShakeRaw(float amplitude, float duration)
+        {
+            if (_cameraShake == null || !ShakeOn || amplitude <= 0f) return;
+            _cameraShake.Shake(amplitude, duration, Context.Rng.Stream(RngStreams.Feedback));
         }
 
         void Sfx(SfxCue cue, Vector2 position)

@@ -21,5 +21,6 @@ MonoBehaviour:
   _basic: {fileID: 11400000, guid: b21ad73c014534c49864b73d2606282a, type: 2}
   _special: {fileID: 11400000, guid: 675a606c4a6386d41a75ab38970bf3b6, type: 2}
   _signature: {fileID: 11400000, guid: 7876557d372b4f641b36547185431f66, type: 2}
-  _ultimate: {fileID: 0}
+  _ultimate: {fileID: 11400000, guid: 4c102b804024c0441bf6e9c2cfe4b8d9, type: 2}
+  _rage: {fileID: 11400000, guid: 23da0b2ef82d3964b82529f0e7c4b90d, type: 2}
   _primaryStatus: {fileID: 11400000, guid: 750dbec6efd82f84c976435f2fe5b9b7, type: 2}

@@ -89,5 +89,26 @@ namespace GMR.Tests
             toggles.ClearOverrides();
             Assert.IsNull(toggles.DamageNumbers);
         }
+
+        [Test]
+        public void ClearOverrides_ResetsComboAndRageToggles()
+        {
+            var toggles = new SessionToggles { ShrinkingComboWindow = true, RageDecay = false };
+            toggles.ClearOverrides();
+            Assert.IsNull(toggles.ShrinkingComboWindow);
+            Assert.IsNull(toggles.RageDecay);
+        }
+
+        [Test]
+        public void UltimateHit_UsesUltimateHitstop()
+        {
+            Assert.AreEqual(0.15f, _config.UltimateHitstop, 1e-6f);
+            Assert.IsTrue(HitstopRule.TryRequest(_timeScale, _config, true, HitWeight.Heavy, DamageTags.Shock | DamageTags.Ultimate, 1f));
+            Assert.AreEqual(_config.HitstopScale, _timeScale.Resolve(1.1f), 1e-6f, "longer than the 0.08 s heavy hitstop");
+            Assert.AreEqual(1f, _timeScale.Resolve(1.151f), "0.15 s Ultimate hitstop is over");
+            Assert.IsFalse(HitstopRule.TryRequest(_timeScale, _config, false, HitWeight.Heavy, DamageTags.Ultimate, 2f), "toggle off");
+            _config.UltimateHitstop = 0f;
+            Assert.IsFalse(HitstopRule.TryRequest(_timeScale, _config, true, HitWeight.Heavy, DamageTags.Ultimate, 3f), "0 disables");
+        }
     }
 }

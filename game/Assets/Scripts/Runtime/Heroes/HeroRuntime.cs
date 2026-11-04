@@ -69,7 +69,8 @@ namespace GMR.Runtime.Heroes
             if (definition.Move == null || definition.Dash == null || definition.Health == null)
                 UnityEngine.Debug.LogError($"[GMR/Heroes] HeroDefinition '{definition.Id}' is missing Move, Dash or Health config.", definition);
             Health = new Health(definition.Health != null ? definition.Health.MaxHp : 100f);
-            Abilities = new AbilityLoadout(owner.Id, owner.Context.Events, definition.Basic, definition.Special, definition.Signature);
+            Abilities = new AbilityLoadout(owner.Id, owner.Context.Events, definition.Basic, definition.Special, definition.Signature,
+                definition.Ultimate);
             if (_body != null) _body.color = definition.PlaceholderColor;
             gameObject.name = $"Hero_{definition.Id}";
         }

@@ -9,21 +9,23 @@ namespace GMR.Core.Abilities
     /// <summary>
     /// A Hero's ability slots (FR-9, AD-6): one AbilityRunner per assigned slot. A Hero runs one ability at a time;
     /// presses made while busy (or while a slot is cooling down) stay in the InputBuffer and fire when legal (FR-8).
-    /// The Ultimate slot is not run here until its RAGE gate exists (Epic 4).
+    /// The Ultimate slot has a runner too (ticked like the others; the HUD shows it through the RAGE meter) but is never started by
+    /// <see cref="TryStartBuffered"/>: only UltimateGate starts it, when RAGE is full (FR-17).
     /// </summary>
     public sealed class AbilityLoadout
     {
         static readonly AbilitySlot[] PressOrder = { AbilitySlot.Basic, AbilitySlot.Special, AbilitySlot.Signature };
 
         readonly AbilityRunner[] _bySlot = new AbilityRunner[4];
-        readonly List<AbilityRunner> _runners = new List<AbilityRunner>(3);
+        readonly List<AbilityRunner> _runners = new List<AbilityRunner>(4);
 
         public AbilityLoadout(PlayerId owner, CombatEvents events, AbilityDefinition basic, AbilityDefinition special,
-            AbilityDefinition signature)
+            AbilityDefinition signature, AbilityDefinition ultimate = null)
         {
             Add(owner, events, AbilitySlot.Basic, basic);
             Add(owner, events, AbilitySlot.Special, special);
             Add(owner, events, AbilitySlot.Signature, signature);
+            Add(owner, events, AbilitySlot.Ultimate, ultimate);
         }
 
         /// <summary>Runners of the assigned slots.</summary>

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GMR.Core.Combo;
 using GMR.Core.Controls;
 using GMR.Core.Encounter;
 using GMR.Core.Heroes;
@@ -10,9 +11,10 @@ using UnityEngine;
 namespace GMR.Runtime.Players
 {
     /// <summary>
-    /// Everything that belongs to the person, not the Hero (AD-6): input reader, input buffer, aim and (later) Combo,
-    /// RAGE and HUD. Owns one replaceable child HeroRuntime built from a HeroDefinition. Registered in
-    /// EncounterContext.Players under its PlayerId (AD-4); one PlayerRoot per joined Player.
+    /// Everything that belongs to the person, not the Hero (AD-6): input reader, input buffer, aim and the
+    /// PlayerCombatState (Combo and RAGE, ticked here with scaled time). The HUD panel binds to it. Owns one replaceable
+    /// child HeroRuntime built from a HeroDefinition, whose RageConfig tunes RAGE. Registered in EncounterContext.Players
+    /// under its PlayerId (AD-4); one PlayerRoot per joined Player.
     /// </summary>
     [DefaultExecutionOrder(-50)]
     public sealed class PlayerRoot : MonoBehaviour, IPlayerTarget
@@ -22,6 +24,7 @@ namespace GMR.Runtime.Players
         [SerializeField, Tooltip("Placeholder Hero prefab; the HeroDefinition supplies tuning and color.")] HeroRuntime _heroPrefab;
         [SerializeField] InputConfig _inputConfig;
         [SerializeField] AimConfig _aimConfig;
+        [SerializeField, Tooltip("Combo Window tuning (shared by all Players).")] ComboConfig _comboConfig;
 
         readonly List<Vector2> _candidates = new List<Vector2>(16);
 
@@ -30,6 +33,9 @@ namespace GMR.Runtime.Players
         public AimResolver Aim { get; private set; }
         public InputBuffer Buffer { get; private set; }
         public HeroRuntime Hero { get; private set; }
+
+        /// <summary>This Player's Combo and RAGE (AD-6: person state, survives a Hero rebuild).</summary>
+        public PlayerCombatState CombatState { get; private set; }
         public AimConfig AimConfig => _aimConfig;
         public bool IsInitialized => Context != null;
 
@@ -59,9 +65,10 @@ namespace GMR.Runtime.Players
             }
             if (_reader == null) _reader = GetComponent<PlayerInputReader>();
             if (_reader == null || _startingHero == null || _heroPrefab == null || _inputConfig == null || _aimConfig == null ||
-                _startingHero.Move == null || _startingHero.Dash == null || _startingHero.Health == null)
+                _comboConfig == null || _startingHero.Move == null || _startingHero.Dash == null ||
+                _startingHero.Health == null || _startingHero.Rage == null)
             {
-                UnityEngine.Debug.LogError("[GMR/Players] PlayerRoot is missing its reader, HeroDefinition (with Move/Dash/Health configs), Hero prefab or config.", this);
+                UnityEngine.Debug.LogError("[GMR/Players] PlayerRoot is missing its reader, HeroDefinition (with Move/Dash/Health/Rage configs), Hero prefab or config.", this);
                 return;
             }
 
@@ -70,6 +77,8 @@ namespace GMR.Runtime.Players
             Aim = new AimResolver(Vector2.right);
             Buffer = new InputBuffer(_inputConfig);
             _reader.SetBuffer(Buffer);
+            CombatState = new PlayerCombatState(id, _comboConfig, _startingHero.Rage, context.Events);
+            CombatState.Bind();
             gameObject.name = $"PlayerRoot {id}";
             BuildHero(_startingHero, spawnPosition);
             context.Players.Register(this);
@@ -81,6 +90,9 @@ namespace GMR.Runtime.Players
             if (Hero != null) Destroy(Hero.gameObject);
             Hero = Instantiate(_heroPrefab, position, Quaternion.identity, transform);
             Hero.Init(this, definition);
+            if (CombatState == null) return;
+            if (definition.Rage != null) CombatState.Rage.Config = definition.Rage;
+            else UnityEngine.Debug.LogError($"[GMR/Players] HeroDefinition '{definition.Id}' has no RageConfig; keeping the previous one.", definition);
         }
 
         /// <summary>Drops buffered presses and ignores this frame's presses (pause menu closing).</summary>
@@ -114,6 +126,7 @@ namespace GMR.Runtime.Players
         {
             if (Context == null) return;
             Buffer.Enabled = SessionToggles.Resolve(Context.Toggles.InputBuffering, _inputConfig.BufferEnabled);
+            TickCombatState();
             if (Time.timeScale <= 0f || Hero == null) return; // paused: menu navigation must not steer the aim
 
             var frame = Frame;
@@ -121,8 +134,19 @@ namespace GMR.Runtime.Players
             Aim.Update(move, frame.DirectionLockHeld, DirectionLockOn);
         }
 
+        void TickCombatState()
+        {
+            var toggles = Context.Toggles;
+            CombatState.Combo.ModeOverride = toggles.ShrinkingComboWindow.HasValue
+                ? (toggles.ShrinkingComboWindow.Value ? ComboMode.Shrinking : ComboMode.Fixed)
+                : (ComboMode?)null;
+            CombatState.Rage.DecayOverride = toggles.RageDecay;
+            CombatState.Tick(Time.deltaTime); // scaled: frozen while paused, slowed by hitstop / Perfect Dodge
+        }
+
         void OnDestroy()
         {
+            CombatState?.Unbind();
             Context?.Players.Unregister(this);
         }
     }

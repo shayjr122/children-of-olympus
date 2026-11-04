@@ -1,15 +1,18 @@
+using GMR.Core.Combo;
 using GMR.Core.Controls;
 using GMR.Core.Encounter;
 using GMR.Core.Feedback;
+using GMR.Core.Rage;
 using GMR.Runtime.Encounter;
 using UnityEngine;
 
 namespace GMR.DevTools
 {
     /// <summary>
-    /// Debug items of the pause menu (Stories 2.5 and 3.4, FR-29 partial): toggles for Aim Assist, Direction Lock, input
-    /// buffering, Perfect Dodge flash and time-slow, damage numbers, hitstop and screen shake. Each writes a session override on EncounterContext.Toggles
-    /// (Config assets stay read-only), applies immediately and persists until the scene is reloaded.
+    /// Debug items of the pause menu (Stories 2.5, 3.4 and 4.1/4.2, FR-29 partial): toggles for Aim Assist, Direction Lock,
+    /// input buffering, Perfect Dodge flash and time-slow, damage numbers, hitstop, screen shake, shrinking Combo Window
+    /// and RAGE decay, plus the "Fill RAGE" cheat (every joined Player). Each toggle writes a session override on
+    /// EncounterContext.Toggles (Config assets stay read-only), applies immediately and persists until the scene reloads.
     /// </summary>
     public sealed class DebugTogglePanel : MonoBehaviour
     {
@@ -17,6 +20,8 @@ namespace GMR.DevTools
         [SerializeField] AimConfig _aimConfig;
         [SerializeField] InputConfig _inputConfig;
         [SerializeField] FeedbackConfig _feedbackConfig;
+        [SerializeField] ComboConfig _comboConfig;
+        [SerializeField, Tooltip("Default shown for the RAGE decay toggle (the starting Hero's RageConfig).")] RageConfig _rageConfig;
 
         [SerializeField] UnityEngine.UI.Toggle _aimAssist;
         [SerializeField] UnityEngine.UI.Toggle _directionLock;
@@ -26,12 +31,16 @@ namespace GMR.DevTools
         [SerializeField] UnityEngine.UI.Toggle _damageNumbers;
         [SerializeField] UnityEngine.UI.Toggle _hitstop;
         [SerializeField] UnityEngine.UI.Toggle _screenShake;
+        [SerializeField] UnityEngine.UI.Toggle _shrinkingCombo;
+        [SerializeField] UnityEngine.UI.Toggle _rageDecay;
+        [SerializeField] UnityEngine.UI.Button _fillRage;
 
         SessionToggles Toggles => _bootstrap.Context.Toggles;
 
         void OnEnable()
         {
-            if (_bootstrap == null || _aimConfig == null || _inputConfig == null || _feedbackConfig == null)
+            if (_bootstrap == null || _aimConfig == null || _inputConfig == null || _feedbackConfig == null ||
+                _comboConfig == null || _rageConfig == null)
             {
                 UnityEngine.Debug.LogError("[GMR/DevTools] DebugTogglePanel is missing references.", this);
                 return;
@@ -45,6 +54,9 @@ namespace GMR.DevTools
             Bind(_damageNumbers, SessionToggles.Resolve(t.DamageNumbers, _feedbackConfig.DamageNumbers), OnDamageNumbers);
             Bind(_hitstop, SessionToggles.Resolve(t.Hitstop, _feedbackConfig.Hitstop), OnHitstop);
             Bind(_screenShake, SessionToggles.Resolve(t.ScreenShake, _feedbackConfig.ScreenShake), OnScreenShake);
+            Bind(_shrinkingCombo, SessionToggles.Resolve(t.ShrinkingComboWindow, _comboConfig.Mode == ComboMode.Shrinking), OnShrinkingCombo);
+            Bind(_rageDecay, SessionToggles.Resolve(t.RageDecay, _rageConfig.DecayEnabled), OnRageDecay);
+            if (_fillRage != null) _fillRage.onClick.AddListener(FillRage);
         }
 
         void OnDisable()
@@ -57,6 +69,18 @@ namespace GMR.DevTools
             Unbind(_damageNumbers, OnDamageNumbers);
             Unbind(_hitstop, OnHitstop);
             Unbind(_screenShake, OnScreenShake);
+            Unbind(_shrinkingCombo, OnShrinkingCombo);
+            Unbind(_rageDecay, OnRageDecay);
+            if (_fillRage != null) _fillRage.onClick.RemoveListener(FillRage);
+        }
+
+        /// <summary>Cheat: fills every joined Player's RAGE to 100% (raises RageChanged / RageFull as usual).</summary>
+        public void FillRage()
+        {
+            if (_bootstrap == null) return;
+            var players = _bootstrap.PlayerRoots;
+            for (int i = 0; i < players.Count; i++) players[i].CombatState?.Rage.Add(RageSource.Debug);
+            UnityEngine.Debug.Log($"[GMR/DevTools] Fill RAGE ({players.Count} Player(s))");
         }
 
         static void Bind(UnityEngine.UI.Toggle toggle, bool value, UnityEngine.Events.UnityAction<bool> handler)
@@ -79,6 +103,8 @@ namespace GMR.DevTools
         void OnDamageNumbers(bool on) { Toggles.DamageNumbers = on; Log("Damage numbers", on); }
         void OnHitstop(bool on) { Toggles.Hitstop = on; Log("Hitstop", on); }
         void OnScreenShake(bool on) { Toggles.ScreenShake = on; Log("Screen shake", on); }
+        void OnShrinkingCombo(bool on) { Toggles.ShrinkingComboWindow = on; Log("Shrinking Combo window", on); }
+        void OnRageDecay(bool on) { Toggles.RageDecay = on; Log("RAGE decay", on); }
 
         static void Log(string name, bool on) => UnityEngine.Debug.Log($"[GMR/DevTools] {name}: {(on ? "ON" : "OFF")}");
     }

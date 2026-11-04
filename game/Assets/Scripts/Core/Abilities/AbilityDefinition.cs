@@ -23,7 +23,7 @@ namespace GMR.Core.Abilities
         [SerializeField, Tooltip("Design tag only (Thrust / Shot / Spin).")]
         AttackType _attackType = AttackType.Thrust;
 
-        [SerializeField, Tooltip("How targets are found: Box (in front, along aim), Circle (around the Hero), Projectile.")]
+        [SerializeField, Tooltip("How targets are found: Box (in front, along aim), Circle (around the Hero), Projectile, AllEnemies (every living enemy, Ultimates).")]
         HitShape _hitShape = HitShape.Box;
 
         [SerializeField, Min(0f), Tooltip("Box: length along the aim. Circle: radius around the Hero. Units.")]
@@ -97,8 +97,8 @@ namespace GMR.Core.Abilities
             if ((_hitShape == HitShape.Box || _hitShape == HitShape.Circle) && !(_range > 0f))
                 errors.Add($"{name}: range must be > 0 for {_hitShape}.");
             if (_hitShape == HitShape.Box && !(_width > 0f)) errors.Add($"{name}: width must be > 0 for Box.");
-            if (_hitShape == HitShape.AllEnemies || _hitShape == HitShape.ExpandingWave)
-                errors.Add($"{name}: hit shape {_hitShape} has no resolver yet (Ultimates, Epics 4/8).");
+            if (_hitShape == HitShape.ExpandingWave)
+                errors.Add($"{name}: hit shape {_hitShape} has no resolver yet (Poseidon's Flood, Epic 8).");
             return errors.Count == before;
         }
 

@@ -1,6 +1,6 @@
 namespace GMR.Runtime.Feedback
 {
-    /// <summary>Placeholder SFX hook points (FR-27). Ultimate, status apply and Conducted Shock cues come with their epics.</summary>
+    /// <summary>Placeholder SFX hook points (FR-27). Status apply and Conducted Shock cues come with their epics.</summary>
     public enum SfxCue
     {
         Hit = 0,
@@ -11,5 +11,9 @@ namespace GMR.Runtime.Feedback
         Dash = 5,
         PerfectDodge = 6,
         AbilityUsed = 7,
+        UltimateUsed = 8,
+        UltimateNotReady = 9,
+        RageFull = 10,
+        ComboLost = 11,
     }
 }

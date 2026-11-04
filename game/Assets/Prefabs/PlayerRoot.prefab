@@ -51,6 +51,7 @@ MonoBehaviour:
   _heroPrefab: {fileID: 3628800295015282812, guid: e9a600a17aa87814e98a85067a63d6b0, type: 3}
   _inputConfig: {fileID: 11400000, guid: b6a7bee96a89fa942ad0a786e872c1f8, type: 2}
   _aimConfig: {fileID: 11400000, guid: b6dd2d9c17fe9d341990c75008e21f39, type: 2}
+  _comboConfig: {fileID: 11400000, guid: 2de0708322fcef244930c880753f0c76, type: 2}
 --- !u!114 &3141153827095463382
 MonoBehaviour:
   m_ObjectHideFlags: 0

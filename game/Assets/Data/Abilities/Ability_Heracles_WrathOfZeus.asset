@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51e9cdf805e07c94f9dc5baa430d35fb, type: 3}
+  m_Name: Ability_Heracles_WrathOfZeus
+  m_EditorClassIdentifier: GMR.Core::GMR.Core.Abilities.AbilityDefinition
+  _id: heracles_wrath_of_zeus
+  _displayName: Wrath of Zeus
+  _attackType: 1
+  _hitShape: 3
+  _range: 0
+  _width: 0
+  _forwardOffset: 0
+  _projectile: {fileID: 0}
+  _startup: 0.35
+  _active: 0.1
+  _recovery: 0.4
+  _cooldown: 0
+  _damage: 100
+  _damageTags: 18
+  _hitWeight: 1
+  _knockback: 8
+  _rootsCaster: 1
+  _status: {fileID: 11400000, guid: 750dbec6efd82f84c976435f2fe5b9b7, type: 2}
+  _statusStacks: 1
+  _color: {r: 0.7, g: 0.9, b: 1, a: 0.6}
