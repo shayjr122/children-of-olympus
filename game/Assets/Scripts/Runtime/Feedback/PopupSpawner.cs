@@ -13,12 +13,12 @@ namespace GMR.Runtime.Feedback
     {
         [SerializeField] Camera _camera;
         [SerializeField, Tooltip("Parent for spawned popups (under a Screen Space - Overlay canvas).")] RectTransform _container;
-        [SerializeField, Tooltip("Inactive template Text cloned for every popup.")] UnityEngine.UI.Text _template;
+        [SerializeField, Tooltip("Inactive TextMeshPro template cloned for every popup.")] TMPro.TMP_Text _template;
         [SerializeField] FeedbackConfig _config;
 
         struct Popup
         {
-            public UnityEngine.UI.Text Text;
+            public TMPro.TMP_Text Text;
             public Vector2 World;
             public float Age;
             public Color Color;

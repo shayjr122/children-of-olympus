@@ -9,8 +9,8 @@ namespace GMR.Runtime.UI
     public sealed class HudSlotView
     {
         [Tooltip("Button glyph shown before the name, e.g. 'X'.")] public string Glyph = "X";
-        public UnityEngine.UI.Text Name;
-        public UnityEngine.UI.Text Value;
+        public TMPro.TMP_Text Name;
+        public TMPro.TMP_Text Value;
 
         [Tooltip("Overlay whose top anchor = cooldown remaining fraction (anchored to the box bottom).")]
         public RectTransform CooldownOverlay;

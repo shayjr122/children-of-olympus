@@ -6,7 +6,8 @@
         "GMR.Runtime",
         "GMR.DevTools",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

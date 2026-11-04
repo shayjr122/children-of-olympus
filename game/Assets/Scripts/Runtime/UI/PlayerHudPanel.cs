@@ -19,22 +19,22 @@ namespace GMR.Runtime.UI
     public sealed class PlayerHudPanel : MonoBehaviour
     {
         [Header("Header")]
-        [SerializeField] UnityEngine.UI.Text _title;
-        [SerializeField] UnityEngine.UI.Text _seed;
+        [SerializeField] TMPro.TMP_Text _title;
+        [SerializeField] TMPro.TMP_Text _seed;
 
         [Header("HP")]
         [SerializeField, Tooltip("Left-anchored fill: anchorMax.x = HP fraction.")] RectTransform _hpFill;
         [SerializeField] UnityEngine.UI.Image _hpFillImage;
-        [SerializeField] UnityEngine.UI.Text _hpText;
+        [SerializeField] TMPro.TMP_Text _hpText;
         [SerializeField] Color _hpColor = new Color(0.35f, 0.9f, 0.35f, 1f);
         [SerializeField] Color _hpLowColor = new Color(1f, 0.3f, 0.25f, 1f);
         [SerializeField, Range(0f, 1f)] float _hpLowFraction = 0.3f;
 
         [Header("Combo")]
-        [SerializeField] UnityEngine.UI.Text _comboCount;
+        [SerializeField] TMPro.TMP_Text _comboCount;
         [SerializeField, Tooltip("Left-anchored fill: anchorMax.x = window remaining.")] RectTransform _comboWindowFill;
         [SerializeField] UnityEngine.UI.Image _comboWindowImage;
-        [SerializeField] UnityEngine.UI.Text _comboResetCue;
+        [SerializeField] TMPro.TMP_Text _comboResetCue;
         [SerializeField] Color _comboColor = new Color(1f, 0.85f, 0.35f, 1f);
         [SerializeField] Color _comboIdleColor = new Color(1f, 1f, 1f, 0.35f);
         [SerializeField] Color _comboLostColor = new Color(1f, 0.3f, 0.25f, 1f);
@@ -45,7 +45,7 @@ namespace GMR.Runtime.UI
         [SerializeField, Tooltip("Left-anchored fill: anchorMax.x = RAGE.")] RectTransform _rageFill;
         [SerializeField] UnityEngine.UI.Image _rageFillImage;
         [SerializeField] UnityEngine.UI.Image _rageFrame;
-        [SerializeField] UnityEngine.UI.Text _rageLabel;
+        [SerializeField] TMPro.TMP_Text _rageLabel;
         [SerializeField, Tooltip("Ultimate button(s) shown in the READY label.")] string _ultimateHint = "RT / R";
         [SerializeField] Color _rageColor = new Color(0.85f, 0.25f, 0.15f, 1f);
         [SerializeField] Color _rageFullColor = new Color(1f, 0.85f, 0.2f, 1f);

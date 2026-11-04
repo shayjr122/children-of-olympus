@@ -23,7 +23,7 @@ MonoBehaviour:
   _startup: 0.1
   _active: 0.05
   _recovery: 0.2
-  _cooldown: 3
+  _cooldown: 1.5
   _damage: 8
   _damageTags: 2
   _hitWeight: 0

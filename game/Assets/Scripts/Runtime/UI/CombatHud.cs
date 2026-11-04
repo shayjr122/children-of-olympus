@@ -16,8 +16,8 @@ namespace GMR.Runtime.UI
         [SerializeField] EncounterBootstrap _bootstrap;
         [SerializeField, Tooltip("Parent of the spawned panels (stretched over the canvas).")] RectTransform _container;
         [SerializeField, Tooltip("Inactive panel template, anchored top-left.")] PlayerHudPanel _template;
-        [SerializeField, Tooltip("Gap to the screen edge, reference pixels (640x400).")] Vector2 _margin = new Vector2(4f, 4f);
-        [SerializeField, Tooltip("Vertical step between panels on the same side, reference pixels.")] float _rowStep = 84f;
+        [SerializeField, Tooltip("Gap to the screen edge, reference pixels (1280x800 canvas).")] Vector2 _margin = new Vector2(8f, 8f);
+        [SerializeField, Tooltip("Vertical step between panels on the same side, reference pixels.")] float _rowStep = 180f;
 
         readonly List<PlayerHudPanel> _panels = new List<PlayerHudPanel>(4);
 

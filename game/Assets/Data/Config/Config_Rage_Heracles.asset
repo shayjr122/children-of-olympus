@@ -19,5 +19,5 @@ MonoBehaviour:
   _perfectDodgeGain: 0.1
   _ultimateHitGain: 0
   _decayEnabled: 1
-  _decayGrace: 1.5
+  _decayGrace: 4.5
   _decayRate: 0.08

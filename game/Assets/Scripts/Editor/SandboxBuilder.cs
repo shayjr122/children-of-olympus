@@ -17,6 +17,7 @@ using GMR.Runtime.Feedback;
 using GMR.Runtime.Heroes;
 using GMR.Runtime.Players;
 using GMR.Runtime.UI;
+using TMPro;
 using UnityEditor;
 using UnityEditor.Events;
 using UnityEditor.SceneManagement;
@@ -68,6 +69,7 @@ namespace GMR.Editor
             // Open the scene FIRST: opening a scene unloads unused assets, which would turn asset references
             // loaded earlier in this method into destroyed objects (scene fields would serialize as null).
             if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            TmpResources.EnsureAll(); // TMP Essential Resources + UI font, before the scene opens (see above)
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             EnsureFolder(HeroesDir);
             EnsureFolder(ConfigDir);
@@ -184,7 +186,7 @@ namespace GMR.Editor
                 SetAll(bolt, ("_id", "heracles_thunderbolt"), ("_displayName", "Thunderbolt"),
                     ("_attackType", (int)AttackType.Shot), ("_hitShape", (int)HitShape.Projectile),
                     ("_projectile", boltProjectile), ("_range", 0f), ("_width", 0f), ("_forwardOffset", 0f),
-                    ("_startup", 0.1f), ("_active", 0.05f), ("_recovery", 0.2f), ("_cooldown", 3f),
+                    ("_startup", 0.1f), ("_active", 0.05f), ("_recovery", 0.2f), ("_cooldown", 1.5f),
                     ("_damage", 8f), ("_damageTags", (int)DamageTags.Shock), ("_hitWeight", (int)HitWeight.Light),
                     ("_knockback", 3f), ("_rootsCaster", false), ("_status", shock), ("_statusStacks", 1),
                     ("_color", new Color(0.55f, 0.85f, 1f, 0.6f)));
@@ -449,8 +451,9 @@ namespace GMR.Editor
 
             BuildArena(square);
 
-            // UI: canvas, event system, flash, popups, help, pause menu.
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // UI: canvas, event system, flash, popups, help, pause menu. All text is TextMeshPro SDF on a Screen Space -
+            // Overlay canvas, drawn at native resolution after the pixel-perfect world (only the world is pixel art).
+            var font = new UiFont(TmpResources.Font, TmpResources.OutlineMaterial);
             var canvas = BuildCanvas();
             var eventSystem = BuildEventSystem(controls);
 
@@ -459,23 +462,27 @@ namespace GMR.Editor
             var ultimateFlash = UiImage(canvas.transform, "UltimateFlash", new Color(0.75f, 0.9f, 1f, 0f));
             Stretch(ultimateFlash.rectTransform);
 
+            // Popups and damage numbers: PopupSpawner projects world -> screen into this overlay container.
             var popupsRoot = new GameObject("Popups", typeof(RectTransform));
             popupsRoot.transform.SetParent(canvas.transform, false);
             Stretch((RectTransform)popupsRoot.transform);
-            var template = UiText(popupsRoot.transform, "PopupTemplate", font, "PERFECT!", 18, TextAnchor.MiddleCenter, Color.white);
-            template.fontStyle = FontStyle.Bold;
-            template.rectTransform.sizeDelta = new Vector2(200f, 30f);
+            var template = UiText(popupsRoot.transform, "PopupTemplate", font, "PERFECT!", 34, TextAlignmentOptions.Center, Color.white, true);
+            template.rectTransform.sizeDelta = new Vector2(400f, 56f);
             template.gameObject.SetActive(false);
 
             var help = UiText(canvas.transform, "ControlsHint", font,
                 "Move: L-stick / WASD    DASH: A / Space    Direction Lock (hold): LT / Left Shift\n" +
                 "Club Strike: X / J / LMB    Thunderbolt: Y / K / RMB    Storm Whirl: B / E    Wrath of Zeus (RAGE full): RT / R\n" +
                 "Pause + debug menu: Start / Esc  (or Select / F1)    Menu: D-pad / stick / arrows, A / Enter, back: B / Esc",
-                9, TextAnchor.LowerLeft, new Color(1f, 1f, 1f, 0.8f));
+                20, TextAlignmentOptions.BottomLeft, new Color(1f, 1f, 1f, 0.85f));
+            help.textWrappingMode = TextWrappingModes.Normal;
             var helpRect = help.rectTransform;
-            helpRect.anchorMin = helpRect.anchorMax = helpRect.pivot = new Vector2(0f, 0f);
-            helpRect.anchoredPosition = new Vector2(6f, 4f);
-            helpRect.sizeDelta = new Vector2(620f, 40f);
+            // Stretched along the bottom edge: wraps instead of running off narrower screens.
+            helpRect.anchorMin = new Vector2(0f, 0f);
+            helpRect.anchorMax = new Vector2(1f, 0f);
+            helpRect.pivot = new Vector2(0f, 0f);
+            helpRect.offsetMin = new Vector2(12f, 8f);
+            helpRect.offsetMax = new Vector2(-12f, 84f);
 
             BuildCombatHud(canvas.transform, font, bootstrap);
 
@@ -605,16 +612,30 @@ namespace GMR.Editor
 
         // ---------------------------------------------------------------- UI
 
+        /// <summary>UI font asset + shared outline/shadow material preset.</summary>
+        readonly struct UiFont
+        {
+            public readonly TMP_FontAsset Asset;
+            public readonly Material Material;
+            public UiFont(TMP_FontAsset asset, Material material) { Asset = asset; Material = material; }
+        }
+
+        /// <summary>
+        /// Screen Space - Overlay: URP draws it on the back buffer after the pixel-perfect world, at native resolution.
+        /// Authored for 1280x800 (Steam Deck 1:1; 1920x1080 scales ~1.42).
+        /// </summary>
         static Canvas BuildCanvas()
         {
             var go = new GameObject("UI", typeof(RectTransform));
             go.layer = 5; // UI
             var canvas = go.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = false;
             canvas.sortingOrder = 10;
             var scaler = go.AddComponent<UnityEngine.UI.CanvasScaler>();
             scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(640f, 400f);
+            scaler.referenceResolution = new Vector2(1280f, 800f);
+            scaler.screenMatchMode = UnityEngine.UI.CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
             go.AddComponent<UnityEngine.UI.GraphicRaycaster>();
             return canvas;
@@ -647,7 +668,7 @@ namespace GMR.Editor
             return reference != null ? reference : throw new InvalidOperationException($"No InputActionReference for {map}/{action}.");
         }
 
-        static void BuildPauseMenu(Transform canvas, Font font, PauseController pause, EncounterBootstrap bootstrap,
+        static void BuildPauseMenu(Transform canvas, UiFont font, PauseController pause, EncounterBootstrap bootstrap,
             TimeScaleServiceDriver driver, EventSystem eventSystem, AimConfig aim, InputConfig input, FeedbackConfig feedback,
             ComboConfig combo, RageConfig rage)
         {
@@ -656,22 +677,21 @@ namespace GMR.Editor
             dim.raycastTarget = true;
 
             var panel = UiImage(dim.transform, "Panel", new Color(0.1f, 0.1f, 0.15f, 0.95f));
-            // 392 tall: fits the 400 px reference height with Resume, 10 toggles and the Fill RAGE cheat.
-            panel.rectTransform.sizeDelta = new Vector2(280f, 392f);
+            // 740 tall: fits the canvas height at 16:10 (800) and 16:9 (~759 reference px) with Resume, 10 toggles and the Fill RAGE cheat.
+            panel.rectTransform.sizeDelta = new Vector2(580f, 740f);
 
-            var title = UiText(panel.transform, "Title", font, "PAUSED", 16, TextAnchor.MiddleCenter, Color.white);
-            title.fontStyle = FontStyle.Bold;
-            Place(title.rectTransform, 0f, 178f, 260f, 22f);
+            var title = UiText(panel.transform, "Title", font, "PAUSED", 34, TextAlignmentOptions.Center, Color.white, true);
+            Place(title.rectTransform, 0f, 334f, 540f, 44f);
 
-            var resume = BuildButton(panel.transform, font, "Resume", 154f);
+            var resume = BuildButton(panel.transform, font, "Resume", 284f);
             UnityEventTools.AddPersistentListener(resume.onClick, pause.Close);
 
-            var header = UiText(panel.transform, "DebugHeader", font, "Debug toggles (session only)", 10, TextAnchor.MiddleCenter,
-                new Color(1f, 1f, 1f, 0.6f));
-            Place(header.rectTransform, 0f, 134f, 260f, 14f);
+            var header = UiText(panel.transform, "DebugHeader", font, "Debug toggles (session only)", 20, TextAlignmentOptions.Center,
+                new Color(1f, 1f, 1f, 0.7f));
+            Place(header.rectTransform, 0f, 240f, 540f, 28f);
 
-            const float step = 22f;
-            float y = 114f;
+            const float step = 40f;
+            float y = 202f;
             var aimAssist = BuildToggle(panel.transform, font, "Aim Assist", y);
             var dirLock = BuildToggle(panel.transform, font, "Direction Lock", y -= step);
             var buffer = BuildToggle(panel.transform, font, "Input buffer", y -= step);
@@ -682,12 +702,12 @@ namespace GMR.Editor
             var shake = BuildToggle(panel.transform, font, "Screen shake", y -= step);
             var shrinking = BuildToggle(panel.transform, font, "Shrinking Combo window", y -= step);
             var rageDecay = BuildToggle(panel.transform, font, "RAGE decay", y -= step);
-            var fillRage = BuildButton(panel.transform, font, "Fill RAGE (cheat)", y -= step + 4f);
+            var fillRage = BuildButton(panel.transform, font, "Fill RAGE (cheat)", y -= step + 12f);
 
             var footer = UiText(panel.transform, "Footer", font,
                 "Navigate: D-pad / stick / arrows    Toggle: A / Enter\nClose: Start / Esc / B (back)",
-                9, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
-            Place(footer.rectTransform, 0f, -178f, 260f, 26f);
+                20, TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.7f));
+            Place(footer.rectTransform, 0f, -318f, 560f, 56f);
 
             var items = new UnityEngine.UI.Selectable[]
                 { resume, aimAssist, dirLock, buffer, pdFlash, pdSlow, damageNumbers, hitstop, shake, shrinking, rageDecay, fillRage };
@@ -731,11 +751,13 @@ namespace GMR.Editor
         static readonly Color HudDark = new Color(0f, 0f, 0f, 0.55f);
 
         /// <summary>
-        /// CombatHud with an inactive 232x80 panel template (reference pixels at 640x400; x2 at 1280x800). Layout from
-        /// the panel's top-left: title + seed, HP bar, RAGE meter, three slot boxes on the left; Combo on the right.
+        /// CombatHud with an inactive 600x172 panel template (reference pixels on the 1280x800 canvas; two panels side by
+        /// side fit the width). Layout from the panel's top-left: title + seed, HP bar, RAGE meter, three slot boxes on
+        /// the left; Combo on the right. No HUD text is smaller than 20 reference px.
         /// </summary>
-        static void BuildCombatHud(Transform canvas, Font font, EncounterBootstrap bootstrap)
+        static void BuildCombatHud(Transform canvas, UiFont font, EncounterBootstrap bootstrap)
         {
+            const float panelW = 600f, panelH = 172f;
             var hudRoot = new GameObject("CombatHud", typeof(RectTransform));
             hudRoot.transform.SetParent(canvas, false);
             Stretch((RectTransform)hudRoot.transform);
@@ -745,49 +767,46 @@ namespace GMR.Editor
             panelGo.transform.SetParent(hudRoot.transform, false);
             var panelRect = (RectTransform)panelGo.transform;
             panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = new Vector2(0f, 1f);
-            panelRect.sizeDelta = new Vector2(232f, 80f);
+            panelRect.sizeDelta = new Vector2(panelW, panelH);
             var background = panelGo.AddComponent<UnityEngine.UI.Image>();
-            background.color = new Color(0.05f, 0.05f, 0.08f, 0.55f);
+            background.color = new Color(0.05f, 0.05f, 0.08f, 0.6f);
             background.raycastTarget = false;
             var panel = panelGo.AddComponent<PlayerHudPanel>();
 
-            var title = HudText(panelGo.transform, "Title", font, "P1  HERACLES", 10, TextAnchor.MiddleLeft, Color.white, 4f, -2f, 116f, 12f);
-            title.fontStyle = FontStyle.Bold;
-            var seed = HudText(panelGo.transform, "Seed", font, "SEED -", 7, TextAnchor.MiddleRight, new Color(1f, 1f, 1f, 0.5f), 120f, -2f, 108f, 10f);
+            var title = HudText(panelGo.transform, "Title", font, "P1  HERACLES", 26, TextAlignmentOptions.Left, Color.white, 10f, -4f, 300f, 32f, true);
+            var seed = HudText(panelGo.transform, "Seed", font, "SEED -", 20, TextAlignmentOptions.Right, new Color(1f, 1f, 1f, 0.6f), 320f, -6f, 270f, 28f);
+            seed.overflowMode = TextOverflowModes.Ellipsis;
 
-            HudText(panelGo.transform, "HpLabel", font, "HP", 8, TextAnchor.MiddleLeft, Color.white, 4f, -15f, 16f, 10f);
-            var hpBack = HudImage(panelGo.transform, "HpBar", HudDark, 20f, -16f, 100f, 8f);
+            HudText(panelGo.transform, "HpLabel", font, "HP", 22, TextAlignmentOptions.Left, Color.white, 10f, -38f, 40f, 28f, true);
+            var hpBack = HudImage(panelGo.transform, "HpBar", HudDark, 52f, -44f, 230f, 16f);
             var hpFill = FillChild(hpBack.transform, "Fill", new Color(0.35f, 0.9f, 0.35f, 1f));
-            var hpText = HudText(panelGo.transform, "HpText", font, "100/100", 8, TextAnchor.MiddleLeft, Color.white, 124f, -15f, 36f, 10f);
+            var hpText = HudText(panelGo.transform, "HpText", font, "100/100", 22, TextAlignmentOptions.Left, Color.white, 292f, -38f, 140f, 28f);
 
-            var rageFrame = HudImage(panelGo.transform, "RageFrame", new Color(0f, 0f, 0f, 0.6f), 4f, -28f, 154f, 15f);
-            var rageBack = HudImage(rageFrame.transform, "RageBar", new Color(0.12f, 0.05f, 0.05f, 0.9f), 1f, -1f, 152f, 13f);
+            var rageFrame = HudImage(panelGo.transform, "RageFrame", new Color(0f, 0f, 0f, 0.6f), 10f, -72f, 422f, 34f);
+            var rageBack = HudImage(rageFrame.transform, "RageBar", new Color(0.12f, 0.05f, 0.05f, 0.9f), 2f, -2f, 418f, 30f);
             var rageFill = FillChild(rageBack.transform, "Fill", new Color(0.85f, 0.25f, 0.15f, 1f));
             rageFill.rectTransform.anchorMax = new Vector2(0f, 1f);
-            var rageLabel = HudText(rageBack.transform, "Label", font, "RAGE 0%", 9, TextAnchor.MiddleCenter, Color.white, 0f, 0f, 152f, 13f);
-            rageLabel.fontStyle = FontStyle.Bold;
+            var rageLabel = HudText(rageBack.transform, "Label", font, "RAGE 0%", 22, TextAlignmentOptions.Center, Color.white, 0f, 0f, 418f, 30f, true);
 
             var slots = new HudSlotView[3];
             string[] glyphs = { "X", "Y", "B" };
             for (int i = 0; i < 3; i++)
             {
-                var box = HudImage(panelGo.transform, "Slot" + glyphs[i], new Color(0.2f, 0.22f, 0.3f, 0.85f), 4f + i * 52f, -47f, 50f, 29f);
+                var box = HudImage(panelGo.transform, "Slot" + glyphs[i], new Color(0.2f, 0.22f, 0.3f, 0.85f), 10f + i * 142f, -112f, 138f, 52f);
                 var overlay = FillChild(box.transform, "Cooldown", new Color(0f, 0f, 0f, 0.6f));
                 overlay.rectTransform.anchorMax = new Vector2(1f, 0f); // anchorMax.y = cooldown remaining fraction
-                var name = HudText(box.transform, "Name", font, glyphs[i], 8, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.85f), 0f, -1f, 50f, 11f);
-                var value = HudText(box.transform, "Value", font, "READY", 9, TextAnchor.MiddleCenter, Color.white, 0f, -13f, 50f, 14f);
-                value.fontStyle = FontStyle.Bold;
+                var name = HudText(box.transform, "Name", font, glyphs[i], 20, TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.9f), 0f, -1f, 138f, 24f);
+                name.overflowMode = TextOverflowModes.Ellipsis; // long ability names must not spill into the next box
+                var value = HudText(box.transform, "Value", font, "READY", 22, TextAlignmentOptions.Center, Color.white, 0f, -24f, 138f, 28f, true);
                 slots[i] = new HudSlotView { Glyph = glyphs[i], Name = name, Value = value, CooldownOverlay = overlay.rectTransform, Background = box };
             }
 
-            HudText(panelGo.transform, "ComboLabel", font, "COMBO", 8, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f), 162f, -14f, 66f, 10f);
-            var comboCount = HudText(panelGo.transform, "ComboCount", font, "x0", 20, TextAnchor.MiddleCenter, Color.white, 162f, -24f, 66f, 22f);
-            comboCount.fontStyle = FontStyle.Bold;
-            var comboBack = HudImage(panelGo.transform, "ComboWindow", HudDark, 166f, -48f, 58f, 5f);
+            HudText(panelGo.transform, "ComboLabel", font, "COMBO", 20, TextAlignmentOptions.Center, new Color(1f, 1f, 1f, 0.75f), 446f, -38f, 146f, 26f, true);
+            var comboCount = HudText(panelGo.transform, "ComboCount", font, "x0", 44, TextAlignmentOptions.Center, Color.white, 446f, -62f, 146f, 50f, true);
+            var comboBack = HudImage(panelGo.transform, "ComboWindow", HudDark, 456f, -116f, 126f, 10f);
             var comboFill = FillChild(comboBack.transform, "Fill", new Color(1f, 0.85f, 0.35f, 1f));
             comboFill.rectTransform.anchorMax = new Vector2(0f, 1f);
-            var resetCue = HudText(panelGo.transform, "ResetCue", font, "", 8, TextAnchor.MiddleCenter, new Color(1f, 0.3f, 0.25f, 1f), 162f, -56f, 66f, 12f);
-            resetCue.fontStyle = FontStyle.Bold;
+            var resetCue = HudText(panelGo.transform, "ResetCue", font, "", 22, TextAlignmentOptions.Center, new Color(1f, 0.3f, 0.25f, 1f), 446f, -132f, 146f, 30f, true);
 
             Set(panel, "_title", title);
             Set(panel, "_seed", seed);
@@ -821,6 +840,8 @@ namespace GMR.Editor
             Set(hud, "_bootstrap", bootstrap);
             Set(hud, "_container", hudRoot.transform);
             Set(hud, "_template", panel);
+            Set(hud, "_margin", new Vector2(8f, 8f));
+            Set(hud, "_rowStep", panelH + 8f);
         }
 
         /// <summary>Top-left anchored rect at (x, y) from the parent's top-left, size (w, h), reference pixels.</summary>
@@ -846,10 +867,10 @@ namespace GMR.Editor
             return image;
         }
 
-        static UnityEngine.UI.Text HudText(Transform parent, string name, Font font, string content, int size, TextAnchor anchor,
-            Color color, float x, float y, float w, float h)
+        static TextMeshProUGUI HudText(Transform parent, string name, UiFont font, string content, float size,
+            TextAlignmentOptions alignment, Color color, float x, float y, float w, float h, bool bold = false)
         {
-            var text = UiText(parent, name, font, content, size, anchor, color);
+            var text = UiText(parent, name, font, content, size, alignment, color, bold);
             TopLeft(text.rectTransform, x, y, w, h);
             return text;
         }
@@ -866,27 +887,27 @@ namespace GMR.Editor
             fadeDuration = 0.05f,
         };
 
-        static UnityEngine.UI.Button BuildButton(Transform parent, Font font, string label, float y)
+        static UnityEngine.UI.Button BuildButton(Transform parent, UiFont font, string label, float y)
         {
             var go = new GameObject(label + "Button", typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            Place((RectTransform)go.transform, 0f, y, 220f, 24f);
+            Place((RectTransform)go.transform, 0f, y, 440f, 48f);
             var image = go.AddComponent<UnityEngine.UI.Image>();
             image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             image.type = UnityEngine.UI.Image.Type.Sliced;
             var button = go.AddComponent<UnityEngine.UI.Button>();
             button.targetGraphic = image;
             button.colors = RowColors();
-            var text = UiText(go.transform, "Label", font, label, 13, TextAnchor.MiddleCenter, Color.white);
+            var text = UiText(go.transform, "Label", font, label, 26, TextAlignmentOptions.Center, Color.white, true);
             Stretch(text.rectTransform);
             return button;
         }
 
-        static UnityEngine.UI.Toggle BuildToggle(Transform parent, Font font, string label, float y)
+        static UnityEngine.UI.Toggle BuildToggle(Transform parent, UiFont font, string label, float y)
         {
             var go = new GameObject(label.Replace(" ", "") + "Toggle", typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            Place((RectTransform)go.transform, 0f, y, 240f, 20f);
+            Place((RectTransform)go.transform, 0f, y, 500f, 36f);
             var row = go.AddComponent<UnityEngine.UI.Image>();
             row.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             row.type = UnityEngine.UI.Image.Type.Sliced;
@@ -900,20 +921,20 @@ namespace GMR.Editor
             var boxRect = box.rectTransform;
             boxRect.anchorMin = boxRect.anchorMax = new Vector2(0f, 0.5f);
             boxRect.pivot = new Vector2(0f, 0.5f);
-            boxRect.anchoredPosition = new Vector2(4f, 0f);
-            boxRect.sizeDelta = new Vector2(14f, 14f);
+            boxRect.anchoredPosition = new Vector2(8f, 0f);
+            boxRect.sizeDelta = new Vector2(28f, 28f);
 
             var check = UiImage(box.transform, "Checkmark", new Color(0.1f, 0.1f, 0.1f, 1f));
             check.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Checkmark.psd");
-            check.rectTransform.sizeDelta = new Vector2(14f, 14f);
+            check.rectTransform.sizeDelta = new Vector2(28f, 28f);
             toggle.graphic = check;
 
-            var text = UiText(go.transform, "Label", font, label, 12, TextAnchor.MiddleLeft, Color.white);
+            var text = UiText(go.transform, "Label", font, label, 24, TextAlignmentOptions.Left, Color.white);
             var textRect = text.rectTransform;
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(24f, 0f);
-            textRect.offsetMax = new Vector2(-4f, 0f);
+            textRect.offsetMin = new Vector2(48f, 0f);
+            textRect.offsetMax = new Vector2(-8f, 0f);
             toggle.isOn = true;
             return toggle;
         }
@@ -941,21 +962,29 @@ namespace GMR.Editor
             return image;
         }
 
-        static UnityEngine.UI.Text UiText(Transform parent, string name, Font font, string content, int size, TextAnchor anchor, Color color)
+        /// <summary>
+        /// TextMeshPro SDF text with the shared outline + shadow preset: stays sharp at any canvas scale (no legacy
+        /// bitmap font, no Outline effect copies).
+        /// </summary>
+        static TextMeshProUGUI UiText(Transform parent, string name, UiFont font, string content, float size,
+            TextAlignmentOptions alignment, Color color, bool bold = false)
         {
             var go = new GameObject(name, typeof(RectTransform));
+            go.layer = 5; // UI
             go.transform.SetParent(parent, false);
-            var text = go.AddComponent<UnityEngine.UI.Text>();
-            text.font = font;
+            var text = go.AddComponent<TextMeshProUGUI>();
+            text.font = font.Asset;
+            text.fontSharedMaterial = font.Material;
             text.text = content;
             text.fontSize = size;
-            text.alignment = anchor;
+            text.enableAutoSizing = false;
+            text.alignment = alignment;
+            text.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
             text.color = color;
             text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            var outline = go.AddComponent<UnityEngine.UI.Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.richText = false;
             return text;
         }
 
@@ -987,6 +1016,7 @@ namespace GMR.Editor
                 case float f: p.floatValue = f; break;
                 case bool b: p.boolValue = b; break;
                 case Color c: p.colorValue = c; break;
+                case Vector2 v: p.vector2Value = v; break;
                 case int i when p.propertyType == SerializedPropertyType.LayerMask: p.intValue = i; break;
                 case int i: p.intValue = i; break;
                 case null: p.objectReferenceValue = null; break;
