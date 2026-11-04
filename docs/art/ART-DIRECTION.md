@@ -1,19 +1,33 @@
 # Art Direction Brief — Greek Mythology Roguelike
 
-> **Status:** Draft for discussion (one-hour session). Nothing here is decided until the questionnaire in §9 is answered.
+> **Status:** ✅ **Questionnaire answered (2026-11-04).** The decisions are in §0. Sections 2–8 keep the original analysis; where a decision changed a recommendation, the section says so.
 > **Scope:** Art direction for the **Crete vertical slice** (GDD §17.2). It runs in parallel with the combat milestones (M5b onward) and does not touch `game/` until the team approves a style test.
 > **Sources:** `GDD.md` (latest version on `prototype/combat`), §1, §7, §10, §15, §16, §17. PRD (NFR-6, FR-24/25 telegraphs). Architecture Spine (Pixel Perfect setup, LFS, "no Animator for combat timing"). The two concept images in `images/`.
 
 ---
 
-## 0. TL;DR
+## 0. Decisions
 
-1. **Recommended direction: A, "Minoan Fresco Daylight"**, with UI and cutscene framing borrowed from B (pottery) and only the glow VFX borrowed from C. Details in §2.
-2. **Camera: 3/4 top-down, as in Wizard of Legend. Not isometric.** The concept images in `images/` are isometric and far more detailed than 32×32 at 640×400 can show. Treat them as **mood only**, not as a style target (§1.2).
-3. **The real constraint is hours, not style.** The vertical slice needs about **185–220 hours of art** if everything is made in-house (§7). At ~3 h/week *total* for the whole team, art alone would take 1.5–3 years. The single most important decision is **who makes the art and with what budget** (Q1, Q10).
-4. **Frame economy:** heroes ~48 frames, enemies ~20 frames each, 2 drawn directions (side + mirror) for the vertical slice (§4).
-5. **AI:** use it for internal placeholders and concept work only, with an `AI_PLACEHOLDER_` prefix and a manifest. **Nothing AI-made ships**, and nothing AI-made appears in a public build (Steam Playtest and the Next Fest demo are public builds) without a Steam disclosure (§6).
-6. **First art step:** a ~10–12 h **style test** (Heracles idle/run/attack + Minotaur-man + one mock Crete room, in 2 palettes), checked on a real Steam Deck screen before anything else is produced (§8).
+| # | Topic | Decision |
+| --- | --- | --- |
+| 1 | Who makes the art | **Fully in-house, AI-assisted.** Art uses **the same ~3 h/week** the team already has, worked together with Claude Code (not extra hours). |
+| 2 | Visual direction | **Mix, balanced atmosphere:** A (Minoan Fresco Daylight) for gameplay and environments, B (pottery motifs) for UI, codex, cutscenes and item cards, C (Mythic Night Glow) for VFX and abilities. One coherent identity. |
+| 3 | Camera | **3/4 top-down**, presented like Wizard of Legend. Not isometric. |
+| 4 | Master palette | **Apollo (~46 colors).** Each region gets a distinctive subset that stays consistent with the master palette. |
+| 5 | Outline | **1 px dark colored outline (sel-out)** on characters and pickups. No outline on environment. |
+| 6 | Facing directions | **2 directions** (one drawn side, mirrored). Aim is shown by VFX and projectiles, as close to Wizard of Legend as practical. |
+| 7 | Animation fidelity | **Showcase:** rich, fluid animation comparable to Wizard of Legend. Budget in §4.6. |
+| 8 | Lighting | **Simple URP 2D lights:** global light per region, local lights (torches), ability and VFX lights, bloom mostly on VFX. No normal maps. |
+| 9 | AI policy | **AI-assisted final art is allowed**, including assets in the commercial release, with review, cleanup and Steam disclosure. Workflow and rules in §6. |
+| 10 | External budget | **$0.** No commissions. |
+
+### 0.1 What these decisions mean (read before A1)
+
+1. **Time.** Showcase animation with $0 budget raises the in-house estimate to about **~320 h** for the Crete vertical slice (§7.5). At 3 h/week that is about **2 years of art for the slice alone**. AI may shorten the static assets (icons, props, tiles, portraits). It is unlikely to shorten frame-by-frame animation much. The A1 style test measures the real speed, so the estimate should be replaced with measured numbers after A1.
+2. **✅ Answered: art shares the team's 3 h/week** (GDD §17.1), worked with Claude Code. Each week's session is either art or code, so art milestones and combat milestones **alternate** instead of running in parallel. The calendar estimates in §7.5 assume all 3 h go to art; with alternating weeks they roughly double.
+3. **✅ Steam disclosure accepted.** Any AI-generated content in the game, demo, playtest build or store page is declared in the Content Survey, and the store page shows that declaration (§6.4).
+4. **AI and animation.** Generators do not keep a consistent pixel grid, palette and proportions across frames. The workflow in §6 uses AI for concepts, keyframe drafts and static assets, and treats animation frames as hand-finished. **Consistency is enforced by the controls in §6.5** (requested: many controls in this area). A1 checks whether that holds.
+5. **Wizard of Legend as the reference for directions.** Check in A1 how WoL itself handles up/down movement, and whether 2 directions look right in our camera. Adding up/down idle and run later costs about 20–30 frames per hero.
 
 ---
 
@@ -182,6 +196,24 @@ Body ~64×64, canvas 96–128. These are the most expensive assets per frame.
 | UI | HUD frame (HP, Combo, RAGE, cooldowns), meander border kit, ability icons, **20–30 item icons** (24×24), minimap tiles, codex page frame, pixel font (licensed, not drawn) | — |
 | Village | One 640×400 screen built from tiles and props. Hestia, Chiron, potion seller: 4-frame idle each | ~12 frames + 1 scene |
 
+### 4.6 ✅ Decided budget: Showcase (Q7)
+
+The tables in §4.2–4.4 are the "economy" budget. The decision is **Showcase**, so the vertical slice targets these counts. The rules in §4.1 still apply: 2 directions, phase-split attack tags, feedback from code, elites as palette swaps.
+
+| Asset | Economy | **Showcase (target)** | Where the extra frames go |
+| --- | --- | --- | --- |
+| Heracles | ~48 | **~70** | Idle 6, run 8, DASH 5, Club Strike 7 (2-frame anticipation, 2 smears), Thunderbolt 6, Storm Whirl 8, Wrath of Zeus 12, hurt 3, death 8, spawn / victory 8. Cape and lion-pelt follow-through on every action |
+| Minotaur-man | 21 | **~30** | Longer charge wind-up, skid and turn, head-shake idle |
+| Cretan Archer | 18 | **~26** | Full draw, nock, retreat hop |
+| Bronze Automaton | 21 | **~30** | Steam vents, seam glow, multi-stage collapse |
+| The Minotaur | ~36 | **~55** | Phase transition, roar, more attack variety |
+| Medusa | ~30 | **~45** | Snake-hair loop, gaze wind-up, tail slither |
+| Talos | ~15 + parts | **~25 + parts** | Still a modular puppet |
+| Village NPCs | 3 × 4 | **3 × 6** | |
+| VFX | ~45 | **~60** | Longer Ultimate and Perfect Dodge effects |
+
+If the calendar becomes a problem, the cheapest lever that keeps the Showcase look is to keep Showcase for **Heracles, the Minotaur and the Ultimate**, and use the economy counts for regular enemies.
+
 ---
 
 ## 5. Tool pipeline: Aseprite to Unity
@@ -191,7 +223,7 @@ Body ~64×64, canvas 96–128. These are the most expensive assets per frame.
 - **Aseprite** (~$20, or free if built from source). Alternative: Pixelorama (free, open source). Use one tool for both team members.
 - **Lospec** for the palette (`.gpl` or `.ase` palette file committed under `docs/art/palettes/`).
 - **Unity 2D Aseprite Importer** (`com.unity.2d.aseprite` 6.0.0, already installed).
-- No AI upscalers or "pixelize" filters on final art. They break the grid and the palette.
+- AI image generators are allowed (Q9), but **AI output never goes into Unity directly**. It always passes through the cleanup steps in §6.2 inside Aseprite. No automatic upscalers or "pixelize" filters as the final step, because they break the grid and the palette.
 
 ### 5.2 File conventions (proposal)
 
@@ -258,37 +290,128 @@ With crop = Windowbox at 640×400, a **1920×1080 desktop** gets integer zoom ×
 
 ---
 
-## 6. AI-assisted placeholder vs hand-made
+## 6. AI-assisted production (✅ decided: AI-assisted final art allowed)
 
-### 6.1 Rules
+> The original brief recommended AI for placeholders only. The decision (Q9) allows AI-assisted **final** art, with review and Steam disclosure. This section is the workflow for that decision.
 
-| Use | AI allowed? | Notes |
+### 6.1 Where AI helps most, and where it helps least
+
+| Asset | AI usefulness | How to use it |
 | --- | --- | --- |
-| Mood boards, concept exploration, color studies | ✅ Yes (internal) | Like the current `images/`. Never on the store page. |
-| Item icon placeholders during vertical slice development | ✅ Yes, temporary | Downscale and quantize to the master palette so they don't mislead playtesters about readability. |
-| Codex illustration drafts, village background block-out | ✅ Yes, temporary | Composition only. Replaced by hand-made art. |
-| Character sprites and animation | ❌ No | AI does not keep a consistent pixel grid and palette across frames. This is also pillar 2, the marketing hook. |
-| Tiles and props | ❌ No | Must be grid-exact and palette-exact. |
-| Final UI, logo, Steam capsule, key art, trailer frames | ❌ No | Commission or hand-make. It is the store page. |
-| Scripts that quantize, slice or atlas (not generative) | ✅ Yes | Not "AI content". |
+| Concept art, mood boards, character design exploration | ⭐⭐⭐ High | Generate many options, pick one, then draw the 32×32 design sheet from it. |
+| Item icons (24×24), portraits, codex illustrations, item cards | ⭐⭐⭐ High | Static, single image. Generate, downscale, quantize to Apollo, clean up by hand. |
+| Props, set pieces, village background | ⭐⭐ Medium | Good start for shapes and composition. Needs grid and perspective fixes to match the 3/4 camera. |
+| Tiles (16×16, must tile seamlessly) | ⭐ Low–medium | Use as texture reference. Seams and Rule Tile edges are easier to draw than to fix. |
+| Animation frames | ⭐ Low | Generators don't keep the same proportions, palette and pixel grid from frame to frame. Use AI for **one keyframe pose** at most, then animate by hand in Aseprite. A1 tests this. |
+| VFX | ⭐ Low | Small and frame-based. Faster to draw directly. |
+| Steam capsule / key art | ⭐⭐ Medium | Allowed. It is the first thing players see, and it carries the disclosure label next to it, so give it the most cleanup time. |
 
-### 6.2 Tracking (mirrors the existing music convention)
+### 6.2 Cleanup pipeline (every AI-assisted asset)
 
-The Spine already uses `AI_PLACEHOLDER_*` plus `manifest.md` for ACE-Step music. Proposal: the same for art.
+1. **Generate** at a larger size, with the prompt and reference image that match the style guide (this document, §2 A/B/C and the Apollo palette).
+2. **Downscale** to the target size with nearest-neighbor (32×32 body, 24×24 icon and so on).
+3. **Quantize to the Apollo palette** (Aseprite: *Sprite → Color Mode → Indexed* with the Apollo palette loaded).
+4. **Hand cleanup in Aseprite:** fix stray pixels, orphan pixels and broken lines, add the 1 px sel-out outline (characters and pickups), set light from top-left, check proportions against the character's design sheet.
+5. **Check in-game** at 640×400 next to existing assets, before calling it final.
+6. **Log it** in the provenance manifest (§6.3).
 
-- Files: `game/Assets/Art/Placeholder/AI/AI_PLACEHOLDER_<name>.png`.
-- `manifest.md` next to them: tool, prompt, date, which final asset will replace it.
-- **Gate before every public build** (Steam Playtest, Next Fest demo, store-page screenshots and trailer): an editor check or `BannedApiTests`-style test that fails if a build scene references any `AI_PLACEHOLDER_` asset. *(Proposal only. Not added to `game/`.)*
+Rule: **if cleanup takes longer than drawing it from scratch would, draw it from scratch.** Note the time in the manifest so the speed comparison is real data.
 
-### 6.3 Steam disclosure
+### 6.3 Provenance manifest
 
-Since January 2024, Valve's Content Survey asks developers to **disclose AI-generated content** that is *pre-generated* (made during development and present in the game, store page or marketing) or *live-generated* at runtime. The disclosure is shown on the store page. Practical consequences:
+The Spine already uses `AI_PLACEHOLDER_*` plus `manifest.md` for ACE-Step music. For art, AI-assisted assets are allowed to be final, so the prefix no longer marks "to be replaced". The manifest is kept anyway, because the Steam disclosure and licensing need a record.
 
-- If **no** AI-generated art or music is in the shipped game, demo, playtest build or store page, there is nothing to disclose for art. That is the recommended target.
-- **Steam Playtest and the Next Fest demo are public builds.** Placeholders must be gone by then, or disclosed.
-- The concept images in `images/` must not be used as store screenshots or capsule art.
+- One file: `game/Assets/Art/AI-PROVENANCE.md` *(proposal, not created in `game/`)*.
+- One row per AI-assisted asset: asset path, tool and version, date, prompt or reference used, how much was hand-edited (light / heavy / redrawn), time spent.
+- Assets that are only temporary placeholders still use the `AI_PLACEHOLDER_` prefix, so they are easy to find and replace.
+
+### 6.4 Steam disclosure and licensing
+
+Since January 2024, Valve's Content Survey asks developers to **disclose AI-generated content** that is *pre-generated* (made during development and present in the game, store page or marketing) or *live-generated* at runtime. The disclosure is shown on the store page.
+
+- **Disclosure is required** under this decision, from the first public build. **Steam Playtest and the Next Fest demo are public builds.**
+- Write the disclosure text in plain words, based on the manifest. For example: "AI tools were used to create concept art and as a starting point for some sprites, icons and illustrations. All in-game art was edited by hand to fit the game's style."
 - Check the **current wording of the Content Survey** when filling it in, because Valve has adjusted it over time.
-- Side note: purely AI-generated images have weak or no copyright protection in several jurisdictions. That is one more reason the capsule and key art should be human-made.
+- **Tool terms:** before using a generator for commercial assets, check that its terms allow commercial use and what they say about ownership of the output. Record the tool and version in the manifest.
+- **Copyright:** purely AI-generated images have weak or no copyright protection in several jurisdictions (for example, the US Copyright Office position). Substantial hand editing strengthens the case for the edited result. This matters most for the logo, capsule and key characters.
+- **Marketing:** some players react negatively to the AI disclosure label. The quality bar in §6.2 is the best defense: the art should look deliberate and consistent.
+- The concept images in `images/` (outdated roster, isometric) should still not be used as store screenshots.
+
+### 6.5 Consistency controls
+
+> Requested in the questionnaire follow-up: **many controls in this area, so everything stays consistent.** The controls are layered. Each layer catches what the one before it misses, and none of them depends on remembering to be careful.
+
+#### Layer 1. One source of truth (the style bible)
+
+Everything AI or a person makes is compared against these files. They live in `docs/art/` and change only by explicit decision.
+
+| File | Contents |
+| --- | --- |
+| `palettes/apollo.hex` | The master palette, exactly as downloaded from Lospec. Never edited. |
+| `palettes/<region>.hex` | Region subsets (Crete first). Every color must exist in `apollo.hex`. |
+| `model-sheets/<Character>.png` | Per character: the approved neutral pose at 1× and 8×, body height in px, head height in px, which Apollo ramp each material uses (skin, bronze, cloth, pelt), outline color per material. |
+| `golden-lineup.png` | Every approved character side by side at 1× and 4×, on the floor tile, same baseline. Regenerated by the checker (`lineup` command). |
+| `animation-sheets/<Character>.md` | Per tag: frame count (from §4.6), which frames are keys, phase split (windup / active / recover). |
+| `STYLE-RULES.md` | One page: light from top-left, sel-out rules, 3–4 tones per material, no dithering on characters, no pure black except ground contact, pivot at the feet. |
+
+#### Layer 2. Controls on AI input
+
+- **Pin the tool and version** per asset family (characters, icons, environment). Changing the tool means re-checking the golden lineup.
+- **Prompt templates** in `docs/art/ai/prompts/` (one per asset family), versioned in git. Each has a fixed style block (palette, camera, outline, light direction, size) and a short variable part. Free-form prompts are not used for final assets.
+- **Always attach reference images**: the model sheet and the golden lineup. Never generate a character without its model sheet.
+- **Record seed and settings** in the provenance manifest (§6.3), so any asset can be regenerated.
+- **Describe the style in our own words.** Don't put other games' or living artists' names in prompts. It hurts consistency (the model pulls toward their look) and raises licensing questions.
+- **Optional, after ~30 approved assets:** train a small style model (LoRA) **only on our own approved, cleaned sprites**. This is the strongest consistency tool available, and it is safe because the training data is ours.
+
+#### Layer 3. Pipeline gates (§6.2)
+
+No step is skipped. Downscale with nearest-neighbor, quantize to Apollo, hand cleanup, in-game check, manifest entry. **AI output never goes into `game/Assets` without passing all five.**
+
+#### Layer 4. Automated checks: `tools/art/check_sprites.py`
+
+A script in this repo that checks exported sprites (PNG, or an Aseprite sheet plus its JSON). Rules come from `tools/art/art-rules.json`. It fails (exit code 1) on errors, so it can run before every commit and at every art gate.
+
+| Check | Error or warning | Catches |
+| --- | --- | --- |
+| Every opaque pixel is an Apollo color (or a region subset color) | Error | AI color drift, anti-aliasing, gradients |
+| Alpha is only 0 or 255 | Error | Soft edges from downscaling |
+| Canvas size matches the category (64×64 character, 128×128 boss, 24×24 icon, 16×16 tile) | Error | Wrong export size |
+| Feet baseline is on the same row in every frame of a tag | Error | Characters "floating" or sinking between frames |
+| Body height stays within ±2 px of the tag median | Warning | Proportion drift between frames |
+| Edge pixels of characters, pickups and icons are dark (sel-out) | Error above 15% light edge pixels | Missing or broken outline |
+| Number of colors per sprite ≤ limit | Warning | Over-rendering, noise |
+| Orphan pixels (no opaque neighbor) | Warning | AI noise left after cleanup |
+| Frame count per tag matches the animation sheet | Warning | Missing or extra frames vs the §4.6 budget |
+| Width and height of the opaque body within the model sheet's range | Warning | Character too big or small relative to the cast |
+
+#### Layer 5. Unity import gate (proposal for `game/`, not added)
+
+An `AssetPostprocessor` that forces the §5.3 import settings for everything under `Assets/Art/` (PPU 32, Point filter, no compression, no mipmaps), plus an EditMode test in the style of `BannedApiTests` that fails if any sprite under `Assets/Art/` has different settings or if a build scene references an `AI_PLACEHOLDER_` asset.
+
+#### Layer 6. Human review
+
+Every asset gets this checklist before it is marked final in the manifest:
+
+1. **Lineup test:** placed next to the golden lineup at 1× and 4×. Same height logic, same outline weight, same light direction.
+2. **Silhouette test:** filled black, is it still recognizable and different from the others?
+3. **Grayscale test:** does it read in value alone? (Telegraphs and pickups must.)
+4. **Onion-skin test** (animations): play the tag in Aseprite with onion skin. No popping volume, no wobble in parts that should be still.
+5. **In-game test:** in the prototype arena at 640×400 and on the Steam Deck. A non-team viewer finds the hero, the enemy and the telegraph within 1 second.
+6. **Sign-off:** one approver (the art lead) marks it final in the manifest. Assets without a sign-off are not final, even if they are in the game.
+
+#### Layer 7. Drift control over time
+
+- **Every 10 approved assets:** regenerate the golden lineup and compare with the previous one. If the style drifted, fix it now, not after 100 assets.
+- **Palette changes** only by explicit decision, logged in `docs/art/CHANGELOG.md` with the reason. The checker makes an unlogged change impossible to miss.
+- **Re-baseline** (accepting a deliberate style change) updates the model sheets and lineup in the same commit, so the source of truth never lags behind.
+
+#### Definition of Done for one art asset
+
+- [ ] `check_sprites.py` passes with no errors
+- [ ] Human review steps 1–5 done
+- [ ] Manifest row filled (tool, version, seed, prompt template, edit level, time, approver)
+- [ ] Imported with the enforced settings (Layer 5 once it exists)
+- [ ] Golden lineup updated if it is a character
 
 ---
 
@@ -345,6 +468,31 @@ This lines up with GDD §18.1, which already notes that pixel art alone exceeds 
 | **S2. Hybrid (recommended)**: in-house heroes, enemies, VFX, UI. **Commission the 3 bosses and the capsule / key art.** Environment either in-house or a commercial tileset recolored to our palette | ~110–140 h | Bosses: ~80–90 frames at 64×64 ≈ **$1,600–4,000**. Capsule / key art ≈ **$300–1,500**. Tileset pack ≈ $10–50 + ~10 h to recolor | Need to manage freelancers and a style guide (this document). A bought tileset weakens the Minoan identity. |
 | **S3. Mostly commissioned** | ~40 h (direction, integration) | 32×32 frames at roughly $8–25 each, plus bosses, tiles and UI ≈ **$5,000–12,000** | Budget. Style drift between artists. |
 
+### 7.5 ✅ Decided scenario: in-house, AI-assisted, Showcase, $0
+
+Using the §4.6 Showcase counts and the §7.1 rates (25 min per character frame for the extra polish, 50 min per boss frame):
+
+| Group | Hours |
+| --- | --- |
+| Heracles (~70 frames + design, portrait, icons) | ~33 |
+| 3 enemies (~86 frames + designs) | ~39 |
+| 3 bosses (~125 frames + Talos parts + designs) | ~112 |
+| Crete tiles + props + sub-area variants | ~29 |
+| VFX (~60 frames) | ~12 |
+| UI (HUD, borders, 20–30 item icons, minimap, codex frame) | ~22 |
+| Village (scene + 3 NPCs × 6 frames) | ~18 |
+| **Subtotal** | **~265** |
+| Rework and learning buffer (+20%) | ~53 |
+| **Total without AI** | **~320 h** |
+| Expected AI saving (static assets: icons, portraits, props, village, designs, about 70 h of the total, 25–40% faster) | −20 to −30 h |
+| **Total with AI assistance** | **~290–300 h** |
+
+| Art hours per week | Crete vertical slice art done in |
+| --- | --- |
+| 3 h/week (the decision) | **~1.9 years** |
+
+These numbers are estimates. A1 measures the real time per frame and the real AI saving, and §7.5 should be updated with those numbers right after A1.
+
 ---
 
 ## 8. Proposed art milestones (parallel to the combat gates)
@@ -353,13 +501,13 @@ Each one ends with something you can look at in the game, following the GDD's mi
 
 | Gate | Content | Hours | Exit check |
 | --- | --- | --- | --- |
-| **A0** | This discussion. Answer §9. Lock the master palette | 1 | Questionnaire answered, GDD §15 diff approved |
-| **A1 Style test** | Heracles idle + run + Club Strike, Minotaur-man idle + run + telegraph, one 40×25-tile mock Crete room, in **2 palette options** | 10–12 | Screenshot at 640×400 and on a **real Steam Deck** screen. Can a non-team viewer find the hero and the enemy within 1 second? |
-| **A2 Combat cast** | Full Heracles set + 3 enemies + core VFX, swapped in for the placeholder shapes in the prototype arena | 40–50 | Playtest: telegraphs are still readable (PRD SM metrics don't get worse than with placeholders) |
+| **A0** ✅ | Questionnaire answered (§0). Apollo chosen as the master palette | done | GDD §15 diff approved |
+| **A1 Style test** | Heracles idle + run + Club Strike, Minotaur-man idle + run + telegraph, one 40×25-tile mock Crete room, all in **Apollo**. Make **one asset two ways**: from scratch, and with the AI pipeline (§6.2) | 12–15 | Screenshot at 640×400 and on a **real Steam Deck** screen. Can a non-team viewer find the hero and the enemy within 1 second? Measured: minutes per frame, minutes per AI-assisted asset. Update §7.5 |
+| **A2 Combat cast** | Full Heracles set + 3 enemies + core VFX at Showcase counts, swapped in for the placeholder shapes in the prototype arena | ~85 | Playtest: telegraphs are still readable (PRD SM metrics don't get worse than with placeholders) |
 | **A3 Crete environment** | Tiles, props, traps, doors, 3 sub-area variants | ~30 | One room of each type is recognizable from its look alone |
-| **A4 Bosses** | Medusa, Talos, Minotaur (in-house or commissioned) | ~70 or $ | |
-| **A5 Village, UI, icons** | Village screen, HUD, meander kit, 20–30 item icons | ~35 | |
-| **A6 Store art** | Capsule, key art, trailer shots | commissioned | Needed before GDD §17.3 step 5 (Steam Coming Soon page) |
+| **A4 Bosses** | Medusa, Talos, Minotaur (in-house) | ~112 | |
+| **A5 Village, UI, icons** | Village screen, HUD, meander kit, 20–30 item icons | ~40 | |
+| **A6 Store art** | Capsule, key art, trailer shots (in-house, AI-assisted, disclosed) | ~15 | Needed before GDD §17.3 step 5 (Steam Coming Soon page) |
 
 A1 is the only one that should start now. It is cheap, and it replaces every estimate in §7 with real numbers.
 
@@ -367,7 +515,7 @@ A1 is the only one that should start now. It is cheap, and it replaces every est
 
 ## 9. Decision questionnaire
 
-Answer in the one-hour discussion. Each question has a recommendation.
+> ✅ **Answered 2026-11-04.** The answers are in §0. The questions and original recommendations are kept below for the record.
 
 1. **Who makes the art, and how many of the ~3 weekly hours go to it?**
    *Recommendation:* one of you becomes the **art lead** at ~1.5 h/week, starting with the A1 style test. Decide the outsourcing budget (Q10) after A1, when the real speed is known.
@@ -403,32 +551,34 @@ Answer in the one-hour discussion. Each question has a recommendation.
 
 ## Appendix A. Proposed GDD change (diff only, not applied)
 
-Against `GDD.md` §15 on `prototype/combat` (verified with `git apply --check`; the same patch is in [`GDD-section15.diff`](GDD-section15.diff)). The values shown are the **recommendations**. Edit them to match the questionnaire answers before applying.
+Against `GDD.md` §15 on `prototype/combat` (verified with `git apply --check`; the same patch is in [`GDD-section15.diff`](GDD-section15.diff)). ✅ Updated with the **questionnaire answers** (§0).
 
 ```diff
-@@ -406,15 +406,24 @@ Hades כבר עשה roguelike במיתולוגיה היוונית עם ברכו
+@@ -406,15 +406,26 @@ Hades כבר עשה roguelike במיתולוגיה היוונית עם ברכו
  
  | נושא | החלטה |
  | --- | --- |
 -| סגנון | **Pixel Art מודרני**, מופשט אך עם פרטים קטנים. קנה מידה וזווית בהשראת Wizard of Legend |
-+| סגנון | **Pixel Art מודרני**, מופשט אך עם פרטים קטנים. קנה מידה וזווית בהשראת Wizard of Legend. ✅ **כיוון:** "פרסקו מינואי" במשחק עצמו, מוטיבים של כדי חרס (דמויות שחורות / אדומות) בממשק, בקודקס ובסצנות, וזוהר רק באפקטים (ראו `docs/art/ART-DIRECTION.md`) |
-+| זווית מצלמה | ✅ **3/4 מלמעלה** (כמו Wizard of Legend), לא איזומטרי. תמונות הקונספט ב-`images/` הן השראה לאווירה בלבד |
++| סגנון | **Pixel Art מודרני**, מופשט אך עם פרטים קטנים. קנה מידה וזווית בהשראת Wizard of Legend. ✅ **כיוון משולב:** "פרסקו מינואי" בסביבות ובמשחק עצמו, מוטיבים של כדי חרס בממשק, בקודקס, בסצנות ובכרטיסי החפצים, ו"זוהר מיתולוגי" באפקטים וביכולות (ראו `docs/art/ART-DIRECTION.md`) |
++| זווית מצלמה | ✅ **3/4 מלמעלה**, כמו Wizard of Legend. לא איזומטרי. תמונות הקונספט ב-`images/` הן השראה לאווירה בלבד |
  | רזולוציה | **דמויות 32×32** |
 -| צבע | **פלטה מובחנת לכל אזור** |
 +| גודל קנבס ואריחים | ✅ גוף 32×32 בתוך קנבס 64×64 (בוסים: גוף 64×64), PPU 32, אריחים 16×16 |
-+| צבע | **פלטה מובחנת לכל אזור**. ✅ פלטת אב אחת (~46 צבעים, נקודת פתיחה: Apollo מ-Lospec), וכל אזור משתמש בתת-קבוצה שלה |
-+| קו מתאר | ✅ קו כהה צבעוני ברוחב פיקסל לדמויות ולחפצים. בלי קו מתאר בסביבה |
-+| כיווני דמות | ✅ 2 כיוונים (צד + שיקוף) ב-Vertical Slice. כיוון התקיפה מוצג באפקטים. לבדוק שוב אחרי פלייטסט |
-+| תקציב אנימציה | ✅ "חסכוני": כ-48 פריימים לגיבור, כ-20 לאויב. ליטוש מלא רק לרגעי הטריילר (Ultimate, DASH, המינוטאור) |
-+| תאורה | ✅ אורות 2D פשוטים, בלי Normal Maps. Bloom רק על אפקטים |
-+| AI בגרפיקה | ✅ רק Placeholder פנימי (`AI_PLACEHOLDER_` + manifest). שום דבר שנוצר ב-AI לא נכנס לבילד ציבורי או לעמוד ה-Steam |
++| צבע | **פלטה מובחנת לכל אזור**. ✅ פלטת אב: **Apollo** (כ-46 צבעים, Lospec). כל אזור מקבל תת-פלטה ייחודית שנשארת עקבית עם פלטת האב |
++| קו מתאר | ✅ קו כהה צבעוני (Sel-out) ברוחב פיקסל לדמויות ולחפצים. בלי קו מתאר בסביבה |
++| כיווני דמות | ✅ 2 כיוונים (צד אחד מצויר + שיקוף), כמה שיותר קרוב ל-Wizard of Legend. כיוון התקיפה מוצג באפקטים ובקליעים |
++| רמת אנימציה | ✅ **Showcase:** אנימציות עשירות וזורמות ברמה של Wizard of Legend. כ-70 פריימים להרקלס, כ-26–30 לאויב, 25–55 לבוס |
++| תאורה | ✅ אורות URP 2D פשוטים: תאורה גלובלית לכל אזור, אורות מקומיים (לפידים), אורות לאפקטים וליכולות. Bloom בעיקר על אפקטים. בלי Normal Maps |
++| הפקת גרפיקה | ✅ **הכול בבית, בעזרת AI, תקציב חיצוני 0$.** הגרפיקה משתמשת באותן ~3 שעות שבועיות של הצוות (סעיף 17.1), בעבודה משותפת עם Claude Code, כך שאבני דרך של גרפיקה ושל קוד מתחלפות |
++| AI בגרפיקה | ✅ **מותר גם בנכסים הסופיים**, בתנאי שכל נכס עובר ניקוי ידני לפי כיוון האמנות (גודל, פרופורציות, פלטה, קו מתאר וסגנון אנימציה), נרשם ביומן מקור, ונבדקו תנאי השימוש המסחרי בכלי. ✅ **דיווח על תוכן AI ב-Steam**, כבר מהבילד הציבורי הראשון (Playtest / דמו) |
++| בקרת עקביות | ✅ שבע שכבות בקרה: מקור אמת אחד (פלטה, דפי מודל, Golden Lineup), תבניות פרומפט קבועות, צינור ניקוי, בדיקה אוטומטית (`tools/art/check_sprites.py`), שער ייבוא ב-Unity, סקירה אנושית וחתימה, ובדיקת סחף כל 10 נכסים (`docs/art/ART-DIRECTION.md` §6.5) |
  | מוזיקה | **כלים יווניים עתיקים** + אורקסטרה, ו**אלקטרוני / סינת'** |
  | מוזיקה דינמית | **כן, חלק מהזהות.** משתנה לפי עוצמת הקרב |
  | קול | **קריין לסרטונים בלבד** |
  
  הדגש הוויזואלי: **הדמויות המיתולוגיות** (בוסים, גיבורים, אויבים) צריכות להיות מזוהות מיד, ומונפשות בצורה שגורמת לשחקן לרצות לראות אותן.
  
-+❓ **פתוח:** מי מכין את הגרפיקה, כמה מתוך 3 השעות השבועיות הולכות אליה, ומה תקציב ההזמנות מפרילנסרים (בוסים, Capsule). הערכה: כ-220 שעות גרפיקה ל-Vertical Slice אם הכול נעשה בבית (`docs/art/ART-DIRECTION.md` §7).
++⚠️ **הערכת זמן:** כ-290–300 שעות גרפיקה ל-Vertical Slice (כרתים). מכיוון שהגרפיקה חולקת את 3 השעות השבועיות עם הקוד, זה יותר משנתיים. מבחן הסגנון (A1) ימדוד את הקצב האמיתי (`docs/art/ART-DIRECTION.md` §7.5).
 +
  ---
  
