@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e599418cb96219045b5aafdf0985c6b8, type: 3}
+  m_Name: Config_Feedback
+  m_EditorClassIdentifier: GMR.Core::GMR.Core.Feedback.FeedbackConfig
+  _perfectDodgeFlash: 1
+  _flashDuration: 0.15
+  _flashMaxAlpha: 0.45
+  _perfectDodgeTimeSlow: 1
+  _timeSlowScale: 0.3
+  _timeSlowDuration: 0.15
+  _popupDuration: 0.7
+  _popupRise: 0.8
+  _hitstop: 1
+  _hitstopLight: 0.03
+  _hitstopHeavy: 0.08
+  _hitstopScale: 0.05
+  _hitFlash: 1
+  _hitFlashColor: {r: 1, g: 1, b: 1, a: 1}
+  _hitFlashDuration: 0.1
+  _playerHurtColor: {r: 1, g: 0.15, b: 0.1, a: 1}
+  _playerHurtFlashDuration: 0.25
+  _damageNumbers: 1
+  _damageNumberColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  _heavyDamageNumberColor: {r: 1, g: 0.75, b: 0.2, a: 1}
+  _playerDamageNumberColor: {r: 1, g: 0.35, b: 0.3, a: 1}
+  _screenShake: 1
+  _shakeAmplitude: 0.15
+  _shakeDuration: 0.15
+  _playerHurtShakeScale: 0.6
+  _ultimateHitstop: 0.15
+  _ultimateShakeAmplitude: 0.4
+  _ultimateShakeDuration: 0.5
+  _ultimateFlash: 1
+  _ultimateFlashColor: {r: 0.75, g: 0.9, b: 1, a: 0.55}
+  _ultimateFlashDuration: 0.35
+  _ultimateBoltColor: {r: 0.7, g: 0.9, b: 1, a: 1}
+  _ultimateBoltDuration: 0.35
+  _ultimateChargeColor: {r: 1, g: 0.9, b: 0.4, a: 0.8}
+  _ultimateNotReadyColor: {r: 1, g: 0.45, b: 0.4, a: 1}
+  _chainColor: {r: 1, g: 0.93, b: 0.45, a: 1}
+  _conductedChainColor: {r: 0.72, g: 0.92, b: 1, a: 1}
+  _chainWidth: 0.1
+  _conductedChainWidth: 0.2
+  _chainDuration: 0.35
+  _chainSegments: 5
+  _chainJitter: 0.25
+  _conductedPopupColor: {r: 0.55, g: 0.85, b: 1, a: 1}
+  _conductedPopup: 1
+  _sfxHooks: 1
+  _logSfxCues: 0

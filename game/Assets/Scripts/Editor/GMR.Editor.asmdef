@@ -1,0 +1,23 @@
+{
+    "name": "GMR.Editor",
+    "rootNamespace": "GMR.Editor",
+    "references": [
+        "GMR.Core",
+        "GMR.Runtime",
+        "GMR.DevTools",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

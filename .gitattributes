@@ -1,0 +1,26 @@
+# Unity YAML: text, LF, merged with UnityYAMLMerge (run tools/setup-git.ps1 once per clone)
+game/**/*.unity   text eol=lf merge=unityyamlmerge
+game/**/*.prefab  text eol=lf merge=unityyamlmerge
+game/**/*.asset   text eol=lf merge=unityyamlmerge
+game/**/*.meta    text eol=lf merge=unityyamlmerge
+game/**/*.mat     text eol=lf merge=unityyamlmerge
+game/**/*.cs      text eol=lf
+game/**/*.asmdef  text eol=lf
+game/**/*.inputactions text eol=lf
+game/**/*.json    text eol=lf
+
+# Git LFS: binaries under game/Assets only (root images/*.png stay in plain git)
+game/Assets/**/*.png      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.psd      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.aseprite filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.ase      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.wav      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.ogg      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.mp3      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.flac     filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.ttf      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.otf      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.fbx      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.exr      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.tga      filter=lfs diff=lfs merge=lfs -text
+game/Assets/**/*.zip      filter=lfs diff=lfs merge=lfs -text
