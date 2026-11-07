@@ -40,7 +40,7 @@ namespace GMR.Runtime.Feedback
         void LateUpdate()
         {
             float duration = _config != null ? _config.PopupDuration : 0.7f;
-            float dt = Time.unscaledDeltaTime;
+            float dt = GMR.Runtime.Encounter.FrameClock.UnscaledDeltaTime;
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var p = _active[i];

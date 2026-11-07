@@ -39,7 +39,7 @@ namespace GMR.Runtime.Feedback
         void LateUpdate()
         {
             if (_remaining <= 0f) return;
-            _remaining -= Time.unscaledDeltaTime;
+            _remaining -= GMR.Runtime.Encounter.FrameClock.UnscaledDeltaTime;
             if (_remaining <= 0f)
             {
                 transform.localPosition = _rest;

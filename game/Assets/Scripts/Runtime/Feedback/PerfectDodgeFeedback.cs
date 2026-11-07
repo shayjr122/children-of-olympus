@@ -47,13 +47,13 @@ namespace GMR.Runtime.Feedback
                 _flashRemaining = _config.FlashDuration;
 
             if (SessionToggles.Resolve(context.Toggles.PerfectDodgeTimeSlow, _config.PerfectDodgeTimeSlow))
-                context.TimeScale.Request(_config.TimeSlowScale, _config.TimeSlowDuration, Time.unscaledTime);
+                context.TimeScale.Request(_config.TimeSlowScale, _config.TimeSlowDuration, context.TimeScale.UnscaledNow);
         }
 
         void Update()
         {
             if (_flashRemaining <= 0f) return;
-            _flashRemaining -= Time.unscaledDeltaTime;
+            _flashRemaining -= FrameClock.UnscaledDeltaTime;
             float duration = Mathf.Max(_config.FlashDuration, 0.0001f);
             SetFlashAlpha(_config.FlashMaxAlpha * Mathf.Clamp01(_flashRemaining / duration));
         }

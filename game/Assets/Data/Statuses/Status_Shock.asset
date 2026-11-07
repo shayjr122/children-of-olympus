@@ -14,4 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: GMR.Core::GMR.Core.Status.StatusDefinition
   _id: shock
   _displayName: Shock
-  _tint: {r: 0.6, g: 0.85, b: 1, a: 1}
+  _duration: 0.6
+  _maxStacks: 1
+  _refreshRule: 0
+  _tint: {r: 1, g: 0.92, b: 0.35, a: 1}
+  _icon: {fileID: 21300000, guid: 5244a336880ae62458c5b35c3e599516, type: 3}
+  _tintPriority: 2
+  _behaviours:
+  - {fileID: 11400000, guid: 9622e2f742c38ed41b4162897021f2ee, type: 2}

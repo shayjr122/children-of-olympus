@@ -20,9 +20,17 @@ namespace GMR.Core.Combat
         /// <summary>Scaled time the request resolved at.</summary>
         public readonly float At;
 
+        /// <summary>Chain modifiers the target's fold produced (Wet: +1 jump, +1.5 u) for a chain leaving it.</summary>
+        public readonly ChainParams Chain;
+
+        /// <summary>True if a status interaction rule fired on this hit (Conducted Shock).</summary>
+        public readonly bool Conducted;
+
         public DamageResult(float dealt, bool killed, bool avoided, Vector2 knockbackImpulse, DamageTags tags,
-            SourceId source, HitWeight weight, int hitId, float at)
+            SourceId source, HitWeight weight, int hitId, float at, ChainParams chain = default, bool conducted = false)
         {
+            Chain = chain;
+            Conducted = conducted;
             Dealt = dealt;
             Killed = killed;
             Avoided = avoided;

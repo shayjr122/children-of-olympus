@@ -47,5 +47,14 @@ MonoBehaviour:
   _ultimateBoltDuration: 0.35
   _ultimateChargeColor: {r: 1, g: 0.9, b: 0.4, a: 0.8}
   _ultimateNotReadyColor: {r: 1, g: 0.45, b: 0.4, a: 1}
+  _chainColor: {r: 1, g: 0.93, b: 0.45, a: 1}
+  _conductedChainColor: {r: 0.72, g: 0.92, b: 1, a: 1}
+  _chainWidth: 0.1
+  _conductedChainWidth: 0.2
+  _chainDuration: 0.35
+  _chainSegments: 5
+  _chainJitter: 0.25
+  _conductedPopupColor: {r: 0.55, g: 0.85, b: 1, a: 1}
+  _conductedPopup: 1
   _sfxHooks: 1
   _logSfxCues: 0

@@ -1,3 +1,4 @@
+using GMR.Core.Status;
 using UnityEngine;
 
 namespace GMR.Core.Combat
@@ -17,6 +18,9 @@ namespace GMR.Core.Combat
 
         /// <summary>0 = full knockback, 1 = immovable.</summary>
         float KnockbackResistance { get; }
+
+        /// <summary>Statuses on this target (FR-18), or null if it cannot carry any. Owned by the target, ticked by StatusTicker.</summary>
+        StatusContainer Statuses { get; }
 
         /// <summary>True while an invulnerability window covers scaled time <paramref name="now"/>.</summary>
         bool IsInvulnerable(float now);

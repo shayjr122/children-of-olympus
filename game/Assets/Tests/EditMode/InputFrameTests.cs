@@ -62,5 +62,15 @@ namespace GMR.Tests
             f.ClearPresses();
             Assert.IsFalse(f.DebugMenuPressed);
         }
+
+        [Test]
+        public void DebugApplyWetPressed_CountsAsPress_AndClears()
+        {
+            var f = new InputFrame { DebugApplyWetPressed = true };
+            Assert.IsTrue(f.AnyPressed);
+            f.ClearPresses();
+            Assert.IsFalse(f.DebugApplyWetPressed);
+            Assert.IsFalse(f.AnyPressed);
+        }
     }
 }

@@ -8,9 +8,10 @@ namespace GMR.Core.Combat
     /// The single damage pipeline (AD-9, AD-16). Every hit goes through <see cref="Apply"/>, which enqueues; requests
     /// raised while a request is resolving (event handlers, later chain jumps) run FIFO after it, in the same frame.
     /// At most <see cref="MaxRequestsPerFrame"/> requests are accepted per frame (<see cref="BeginFrame"/>); the rest
-    /// are dropped with a warning. Per request: invulnerability check -> (modifier fold, Epic 5) -> HP -> knockback
-    /// impulse -> target.ApplyResolved -> events -> status payload hook. Sole owner of HP changes and of HitLanded,
-    /// HitAvoided, PlayerDamaged and EnemyDied.
+    /// are dropped with a warning. Per request: invulnerability check -> modifier fold (the target's StatusContainer:
+    /// status behaviours, then interaction rules; ChainParams is only mutated here) -> HP -> knockback impulse ->
+    /// target.ApplyResolved -> events -> status payload hook. Sole owner of HP changes and of HitLanded, HitAvoided,
+    /// PlayerDamaged and EnemyDied.
     /// </summary>
     public sealed class DamageSystem
     {
@@ -32,7 +33,7 @@ namespace GMR.Core.Combat
 
         sealed class NoStatusApplier : IStatusApplier
         {
-            public void Apply(IDamageable target, in StatusPayload payload, SourceId source, float now) { }
+            public void Apply(IDamageable target, in DamageRequest request, in DamageResult result) { }
         }
 
         readonly CombatEvents _events;
@@ -53,7 +54,7 @@ namespace GMR.Core.Combat
         /// <summary>Requests dropped by the cap since the last <see cref="BeginFrame"/>.</summary>
         public int DroppedThisFrame { get; private set; }
 
-        /// <summary>Receives the status payload of every landed hit. No-op until the Status System (Epic 5).</summary>
+        /// <summary>Receives the status payload of every landed hit (EncounterContext installs the StatusApplier).</summary>
         public IStatusApplier StatusApplier
         {
             get => _statusApplier;
@@ -128,8 +129,12 @@ namespace GMR.Core.Combat
                 return;
             }
 
-            // Modifier fold (statuses, archetype armor) arrives with Epic 5; the amount passes through unchanged.
+            // Modifier fold (AD-9, AD-16): status modifiers and interaction rules of the target. Archetype modifiers
+            // (Tank armor) would follow here if ever approved.
             float amount = req.Amount;
+            var chain = default(ChainParams);
+            var statuses = target.Statuses;
+            bool conducted = statuses != null && statuses.FoldIncoming(ref amount, ref chain, req, now);
             bool wasDepleted = target.Health.IsDepleted;
             float dealt = target.Health.TakeDamage(amount);
             bool killed = !wasDepleted && target.Health.IsDepleted;
@@ -137,14 +142,15 @@ namespace GMR.Core.Combat
             float resistance = Mathf.Clamp01(target.KnockbackResistance);
             Vector2 impulse = req.Knockback * (1f - resistance);
 
-            var result = new DamageResult(dealt, killed, false, impulse, req.Tags, req.Source, req.Weight, req.HitId, now);
+            var result = new DamageResult(dealt, killed, false, impulse, req.Tags, req.Source, req.Weight, req.HitId, now, chain,
+                conducted);
             target.ApplyResolved(result);
 
             var id = target.Id;
             if (id.IsPlayer) _events.RaisePlayerDamaged(new PlayerDamaged(id.Player, target, position, result));
             else _events.RaiseHitLanded(new HitLanded(target, id, position, result));
 
-            if (req.Status.HasStatus) _statusApplier.Apply(target, req.Status, req.Source, now);
+            if (req.Status.HasStatus) _statusApplier.Apply(target, req, result);
 
             if (killed && !id.IsPlayer) _events.RaiseEnemyDied(new EnemyDied(target, id, req.Source, position, now));
         }

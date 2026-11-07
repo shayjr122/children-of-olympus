@@ -2,6 +2,7 @@ using System;
 using GMR.Core.Abilities;
 using GMR.Core.Combo;
 using GMR.Core.Rage;
+using GMR.Core.Status;
 
 namespace GMR.Core.Combat
 {
@@ -25,6 +26,10 @@ namespace GMR.Core.Combat
         public event Action<ComboReset> OnComboReset;
         public event Action<RageChanged> OnRageChanged;
         public event Action<RageFull> OnRageFull;
+        public event Action<StatusApplied> OnStatusApplied;
+        public event Action<StatusExpired> OnStatusExpired;
+        public event Action<ConductedShock> OnConductedShock;
+        public event Action<ChainJumped> OnChainJumped;
 
         /// <summary>Owner: DashController.</summary>
         public void RaiseDashStarted(in DashStarted e) => OnDashStarted?.Invoke(e);
@@ -64,5 +69,17 @@ namespace GMR.Core.Combat
 
         /// <summary>Owner: RageMeter.</summary>
         internal void RaiseRageFull(in RageFull e) => OnRageFull?.Invoke(e);
+
+        /// <summary>Owner: StatusContainer.</summary>
+        internal void RaiseStatusApplied(in StatusApplied e) => OnStatusApplied?.Invoke(e);
+
+        /// <summary>Owner: StatusContainer.</summary>
+        internal void RaiseStatusExpired(in StatusExpired e) => OnStatusExpired?.Invoke(e);
+
+        /// <summary>Owner: StatusContainer (interaction rule fold).</summary>
+        internal void RaiseConductedShock(in ConductedShock e) => OnConductedShock?.Invoke(e);
+
+        /// <summary>Owner: ChainRun (ChainLightningBehaviour).</summary>
+        internal void RaiseChainJumped(in ChainJumped e) => OnChainJumped?.Invoke(e);
     }
 }

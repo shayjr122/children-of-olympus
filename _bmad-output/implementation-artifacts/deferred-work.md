@@ -20,11 +20,29 @@
   summary: PlayMode assertions for hit flash, camera shake and damage-number popups.
   evidence: Covered by the manual juice check only; FeedbackRouter hitstop toggle is tested.
 - source_spec: `_bmad-output/implementation-artifacts/spec-epic-4-m5a-combo-rage-ultimate.md`
-  summary: Investigate intermittent SandboxSmokeTest failures where a gamepad ability press (Thunderbolt Y, Club Strike X) does not start the ability.
-  evidence: Seen in 2 of ~11 batchmode runs at pre-existing M4b asserts; hitstop runs on wall-clock unscaled time while the test fixes scaled time with captureFramerate, so frame-counted waits vary with machine speed. Assert messages now print a Diag() line.
-- source_spec: `_bmad-output/implementation-artifacts/spec-epic-4-m5a-combo-rage-ultimate.md`
   summary: EditMode tests for AllEnemiesHitResolver (dead / non-damageable enemies skipped, registry changes mid-hit) and for RageConfig swap on Hero rebuild.
   evidence: Covered only indirectly by the PlayMode Wrath of Zeus step.
 - source_spec: `_bmad-output/implementation-artifacts/spec-epic-4-m5a-combo-rage-ultimate.md`
   summary: Manual readability check of the per-Player HUD at 640x400 and 1280x800 (Story 4.3 is a manual-test story), plus a session toggle for the Ultimate screen flash.
   evidence: Batchmode cannot screenshot the overlay canvas; layout sized for the 640x400 reference.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: Builder re-applies M5b upgrades on every BuildAll (Wrath `_statusMaxPotency` true; Status_Shock defaults when its behaviours list is empty); add a one-time migration marker.
+  evidence: A designer turning max potency off or emptying Shock behaviours is overwritten by the next rebuild.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: Hero statuses: clear on Hero death/rebuild (raise StatusExpired), StatusVisuals on the Hero prefab, unregister on disable.
+  evidence: No status applies to Heroes yet; HeroRuntime only registers/unregisters its container.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: Performance for 15 enemies + full chains on Steam Deck: pool ChainRun/lightning segment GameObjects and profile Wrath of Zeus at max potency.
+  evidence: Each Shock application allocates a ChainRun; each jump creates 5-10 SpriteRenderer GameObjects.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: Chain ends silently when a queued jump is avoided (i-frames), its target died first, or the 256/frame cap drops it; consider re-picking from the last target.
+  evidence: Dummies have no post-hit i-frames, so not reachable in the Sandbox today; enemies (Epic 6) may have spawn invulnerability.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: ConductedShock is raised inside the fold (before HP); add the dealt amount / kill flag if Epic 9 telemetry needs it.
+  evidence: Event carries source, target, tag, multiplier, hit id only.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: PlayMode checks for a Wet dummy losing its statuses on break, the F2 key, and the CONDUCTED! popup itself (only its SFX cue is asserted).
+  evidence: Clear() primitive and the D-pad path are tested; manual check covers the rest.
+- source_spec: `_bmad-output/implementation-artifacts/spec-epic-5-m5b-status-shock-wet.md`
+  summary: Fold order inside StatusBehaviour.ModifyIncoming (flat before multiplier across behaviours) is a convention, not enforced; split flat/multiplier contributions when a second modifying behaviour lands.
+  evidence: Only interaction rules modify damage today, and the rule fold applies flat chain adds before multipliers.

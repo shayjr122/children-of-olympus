@@ -1,6 +1,7 @@
 using GMR.Core.Abilities;
 using GMR.Core.Combat;
 using GMR.Core.Heroes;
+using GMR.Core.Status;
 using GMR.Runtime.Players;
 using UnityEngine;
 
@@ -53,6 +54,10 @@ namespace GMR.Runtime.Heroes
         // At 0 HP the Hero takes no more hits (no PlayerDamaged spam); Player death itself arrives with Epic 7.
         public bool IsAlive => IsInitialized && Health != null && !Health.IsDepleted;
         public Health Health { get; private set; }
+
+        /// <summary>Statuses on this Hero (FR-18: Heroes can carry statuses; none apply any yet).</summary>
+        public StatusContainer Statuses { get; private set; }
+
         public float KnockbackResistance => Definition != null && Definition.Health != null ? Definition.Health.KnockbackResistance : 0f;
         public bool IsInvulnerable(float now) => Invulnerability.IsInvulnerable(now);
 
@@ -69,10 +74,17 @@ namespace GMR.Runtime.Heroes
             if (definition.Move == null || definition.Dash == null || definition.Health == null)
                 UnityEngine.Debug.LogError($"[GMR/Heroes] HeroDefinition '{definition.Id}' is missing Move, Dash or Health config.", definition);
             Health = new Health(definition.Health != null ? definition.Health.MaxHp : 100f);
+            Statuses = new StatusContainer(this, owner.Context.StatusServices);
+            owner.Context.Statuses.Register(Statuses);
             Abilities = new AbilityLoadout(owner.Id, owner.Context.Events, definition.Basic, definition.Special, definition.Signature,
                 definition.Ultimate);
             if (_body != null) _body.color = definition.PlaceholderColor;
             gameObject.name = $"Hero_{definition.Id}";
+        }
+
+        void OnDestroy()
+        {
+            if (Statuses != null && Owner != null && Owner.Context != null) Owner.Context.Statuses.Unregister(Statuses);
         }
 
         public void ApplyResolved(in DamageResult result)

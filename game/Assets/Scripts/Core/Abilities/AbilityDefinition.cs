@@ -53,9 +53,11 @@ namespace GMR.Core.Abilities
         [SerializeField, Tooltip("If set, the Hero cannot move from Startup until the end of Recovery.")]
         bool _rootsCaster;
 
-        [Header("Status (applied by the Status System, Epic 5)")]
+        [Header("Status (applied to targets hit, FR-18)")]
         [SerializeField] StatusDefinition _status;
         [SerializeField, Min(1)] int _statusStacks = 1;
+        [SerializeField, Tooltip("Apply the status at maximum potency (Shock: maximum chain count). Wrath of Zeus.")]
+        bool _statusMaxPotency;
 
         [Header("Placeholder")]
         [SerializeField, Tooltip("Color of the hit-area flash shown during Active.")]
@@ -80,10 +82,11 @@ namespace GMR.Core.Abilities
         public bool RootsCaster { get => _rootsCaster; internal set => _rootsCaster = value; }
         public StatusDefinition Status { get => _status; internal set => _status = value; }
         public int StatusStacks { get => _statusStacks; internal set => _statusStacks = value; }
+        public bool StatusMaxPotency { get => _statusMaxPotency; internal set => _statusMaxPotency = value; }
         public Color Color { get => _color; internal set => _color = value; }
 
         /// <summary>The status payload hits of this ability carry (none if no status is set).</summary>
-        public StatusPayload StatusPayload => new StatusPayload(_status, _statusStacks);
+        public StatusPayload StatusPayload => new StatusPayload(_status, _statusStacks, _statusMaxPotency);
 
         /// <summary>Appends one message per problem to <paramref name="errors"/>; returns true if valid.</summary>
         public bool Validate(List<string> errors)

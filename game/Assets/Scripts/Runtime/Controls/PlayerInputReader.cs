@@ -22,7 +22,7 @@ namespace GMR.Runtime.Controls
         InputActionAsset _instance;
         InputActionMap _gameplay;
         InputActionMap _debugMap;
-        InputAction _move, _aim, _dash, _basic, _special, _signature, _ultimate, _directionLock, _heroSwap, _pause, _debugMenu;
+        InputAction _move, _aim, _dash, _basic, _special, _signature, _ultimate, _directionLock, _heroSwap, _pause, _debugMenu, _debugApplyWet;
 
         InputBuffer _buffer;
         InputFrame _pending;
@@ -76,6 +76,7 @@ namespace GMR.Runtime.Controls
 
             _debugMap = actions.FindActionMap(DebugMap, throwIfNotFound: false);
             _debugMenu = _debugMap?.FindAction("ToggleDebugMenu", false);
+            _debugApplyWet = _debugMap?.FindAction("ApplyWetToAll", false);
         }
 
         void OnEnable()
@@ -89,6 +90,7 @@ namespace GMR.Runtime.Controls
             _heroSwap.performed += OnHeroSwap;
             _pause.performed += OnPause;
             if (_debugMenu != null) _debugMenu.performed += OnDebugMenu;
+            if (_debugApplyWet != null) _debugApplyWet.performed += OnDebugApplyWet;
             _gameplay.Enable();
             _debugMap?.Enable();
         }
@@ -106,6 +108,7 @@ namespace GMR.Runtime.Controls
             _heroSwap.performed -= OnHeroSwap;
             _pause.performed -= OnPause;
             if (_debugMenu != null) _debugMenu.performed -= OnDebugMenu;
+            if (_debugApplyWet != null) _debugApplyWet.performed -= OnDebugApplyWet;
             _pending.ClearPresses();
             _frame = default;
         }
@@ -148,5 +151,6 @@ namespace GMR.Runtime.Controls
         void OnHeroSwap(InputAction.CallbackContext _) => _pending.HeroSwapPressed = true;
         void OnPause(InputAction.CallbackContext _) => _pending.PausePressed = true;
         void OnDebugMenu(InputAction.CallbackContext _) => _pending.DebugMenuPressed = true;
+        void OnDebugApplyWet(InputAction.CallbackContext _) => _pending.DebugApplyWetPressed = true;
     }
 }

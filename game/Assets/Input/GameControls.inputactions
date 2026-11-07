@@ -638,6 +638,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "ApplyWetToAll",
+                    "type": "Button",
+                    "id": "0b7f3c2e-5a41-4f0e-9d7b-2c6e1a8f4b13",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -660,6 +669,28 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "ToggleDebugMenu",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7d2e9a14-3b6c-4f81-a0d5-9e4c2b7f1a62",
+                    "path": "<Gamepad>/dpad/up",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "ApplyWetToAll",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c41a8e6f-92d7-4b3a-8f15-6e0b9d2c7a48",
+                    "path": "<Keyboard>/f2",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "ApplyWetToAll",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

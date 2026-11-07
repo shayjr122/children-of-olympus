@@ -31,4 +31,5 @@ MonoBehaviour:
   _rootsCaster: 1
   _status: {fileID: 11400000, guid: 750dbec6efd82f84c976435f2fe5b9b7, type: 2}
   _statusStacks: 1
+  _statusMaxPotency: 1
   _color: {r: 0.7, g: 0.9, b: 1, a: 0.6}

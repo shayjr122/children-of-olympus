@@ -1,5 +1,6 @@
 using GMR.Core.Combat;
 using GMR.Core.Enemies;
+using GMR.Core.Status;
 using GMR.Runtime.Encounter;
 using UnityEngine;
 
@@ -9,7 +10,8 @@ namespace GMR.DevTools
     /// Training dummy (Story 3.1): an IDamageable enemy on the Enemy layer with HP from a HealthConfig, knocked back by
     /// the impulse DamageSystem resolves (ApplyResolved), walking back to its spot after a while. At 0 HP DamageSystem
     /// raises EnemyDied; the dummy hides and after the configured delay respawns at its spot with full HP (restored
-    /// through DamageSystem, the only HP writer). Also an Aim Assist candidate while alive.
+    /// through DamageSystem, the only HP writer). Also an Aim Assist candidate and a chain-lightning target while alive.
+    /// Carries a StatusContainer (registered for StatusTicker while enabled); statuses end when it breaks.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     public sealed class TrainingDummy : MonoBehaviour, IDamageable, IEnemyTarget
@@ -32,6 +34,7 @@ namespace GMR.DevTools
         public bool IsAlive => _registered && !_broken;
         public Vector2 Position => _body != null ? _body.position : (Vector2)transform.position;
         public Health Health { get; private set; }
+        public StatusContainer Statuses { get; private set; }
         public float KnockbackResistance => _health != null ? _health.KnockbackResistance : 0f;
         public bool IsInvulnerable(float now) => _invulnerability.IsInvulnerable(now);
 
@@ -55,8 +58,10 @@ namespace GMR.DevTools
             {
                 Id = SourceId.ForEnemy(context.Enemies.NextEnemyId());
                 Health = new Health(_health.MaxHp);
+                Statuses = new StatusContainer(this, context.StatusServices);
             }
             context.Enemies.Register(this);
+            context.Statuses.Register(Statuses);
             context.Events.OnEnemyDied += OnEnemyDied;
             _registered = true;
         }
@@ -67,6 +72,8 @@ namespace GMR.DevTools
             var context = _bootstrap.Context;
             context.Events.OnEnemyDied -= OnEnemyDied;
             context.Enemies.Unregister(this);
+            context.Statuses.Unregister(Statuses);
+            Statuses.Clear(Time.time);
             _registered = false;
         }
 
@@ -83,6 +90,7 @@ namespace GMR.DevTools
             if (e.Enemy != Id) return;
             _broken = true;
             _respawnAt = Time.time + _config.RespawnDelay;
+            Statuses.Clear(Time.time);
             SetVisible(false);
         }
 

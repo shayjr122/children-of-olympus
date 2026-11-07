@@ -16,6 +16,7 @@ using GMR.Runtime.Encounter;
 using GMR.Runtime.Feedback;
 using GMR.Runtime.Heroes;
 using GMR.Runtime.Players;
+using GMR.Runtime.Status;
 using GMR.Runtime.UI;
 using TMPro;
 using UnityEditor;
@@ -30,10 +31,12 @@ using Object = UnityEngine.Object;
 namespace GMR.Editor
 {
     /// <summary>
-    /// Generates the Sandbox content (Epics 2-4): layers and the Physics2D layer matrix, placeholder sprites,
-    /// Config/Definition assets (Heracles' kit incl. Wrath of Zeus, health, projectile, Shock stub, Combo and RAGE
-    /// configs), the PlayerRoot, Hero and Projectile prefabs and the Sandbox scene (walls, two dummy attackers, three
-    /// training dummies, feedback incl. Ultimate visuals, per-Player combat HUD, controls hint, pause/debug menu). Idempotent: existing Config/Definition assets are kept (tuning and slot edits
+    /// Generates the Sandbox content (Epics 2-5): layers and the Physics2D layer matrix, placeholder sprites,
+    /// Config/Definition assets (Heracles' kit incl. Wrath of Zeus, health, projectile, Combo and RAGE configs, Status_Shock
+    /// with its chain-lightning behaviour, Status_Wet, Rule_WetConductsShock and the status rule set), the PlayerRoot, Hero
+    /// and Projectile prefabs and the Sandbox scene (walls, two dummy attackers, three training dummies plus a chain lane
+    /// of five, status ticker and visuals, feedback incl. Ultimate and chain lightning visuals, per-Player combat HUD,
+    /// controls hint, pause/debug menu, debug status tools). Idempotent: existing Config/Definition assets are kept (tuning and slot edits
     /// survive; empty Hero fields are filled), prefabs and the scene contents are rebuilt.
     /// Batchmode: unity run game -- -executeMethod GMR.Editor.SandboxBuilder.BuildAll
     /// </summary>
@@ -49,6 +52,7 @@ namespace GMR.Editor
         const string HeroesDir = "Assets/Data/Heroes";
         const string AbilitiesDir = "Assets/Data/Abilities";
         const string StatusesDir = "Assets/Data/Statuses";
+        const string RulesDir = "Assets/Data/Rules";
         const string ConfigDir = "Assets/Data/Config";
         const string PrefabDir = "Assets/Prefabs";
 
@@ -76,6 +80,7 @@ namespace GMR.Editor
             EnsureFolder(PrefabDir);
             EnsureFolder(AbilitiesDir);
             EnsureFolder(StatusesDir);
+            EnsureFolder(RulesDir);
             EnsureLayers();
             EnsureLayerMatrix();
 
@@ -96,8 +101,7 @@ namespace GMR.Editor
             var dummyHealth = EnsureAsset<HealthConfig>(ConfigDir + "/Config_Health_TrainingDummy.asset", out bool dummyHealthCreated);
             if (dummyHealthCreated) SetAll(dummyHealth, ("_maxHp", 100f), ("_knockbackResistance", 0.5f), ("_postHitInvulnerability", 0f));
 
-            var shock = EnsureAsset<StatusDefinition>(StatusesDir + "/Status_Shock.asset", out bool shockCreated);
-            if (shockCreated) SetAll(shock, ("_id", "shock"), ("_displayName", "Shock"), ("_tint", new Color(0.6f, 0.85f, 1f, 1f)));
+            var (shock, wet, statusRules) = EnsureStatuses(square, circle);
             var bolt = EnsureAsset<ProjectileConfig>(ConfigDir + "/Config_Projectile_Thunderbolt.asset", out bool boltCreated);
             if (boltCreated)
                 SetAll(bolt, ("_speed", 14f), ("_lifetime", 0.8f), ("_radius", 0.2f), ("_pierce", 0),
@@ -135,11 +139,11 @@ namespace GMR.Editor
             var heroPrefab = BuildHeroPrefab(square, circle, ring, arrow, projectilePrefab);
             var playerPrefab = BuildPlayerRootPrefab(controls, hero, heroPrefab, input, aim, combo);
             BuildScene(scene, controls, playerPrefab, square, circle, ring, aim, input, feedback, dummyConfig,
-                trainingConfig, dummyHealth, combo, rage);
+                trainingConfig, dummyHealth, combo, rage, wet, statusRules);
             EnsureSceneInBuildSettings();
 
             AssetDatabase.SaveAssets();
-            UnityEngine.Debug.Log("[GMR/Editor] Sandbox rebuilt (M5a).");
+            UnityEngine.Debug.Log("[GMR/Editor] Sandbox rebuilt (M5b).");
         }
 
         // ---------------------------------------------------------------- project setup
@@ -203,7 +207,47 @@ namespace GMR.Editor
             return (club, bolt, whirl);
         }
 
-        /// <summary>Heracles' Ultimate (FR-17): lightning on every enemy; the Shock payload goes to the Status hook (Epic 5).</summary>
+        /// <summary>
+        /// Status assets (Epic 5): Status_Shock with Behaviour_ChainLightning_Shock (N 3, R 3.5, x0.7, 8 dmg; 6 jumps at max
+        /// potency), Status_Wet (6 s, blue, no damage), Rule_WetConductsShock (x2 Shock damage, +1 jump, +1.5 u, Wet kept)
+        /// and StatusRuleSet_Default. Existing assets keep their tuning; the pre-Epic-5 Shock stub (no behaviours) is
+        /// upgraded once.
+        /// </summary>
+        static (StatusDefinition shock, StatusDefinition wet, StatusRuleSet rules) EnsureStatuses(Sprite square, Sprite circle)
+        {
+            var chain = EnsureAsset<ChainLightningBehaviour>(StatusesDir + "/Behaviour_ChainLightning_Shock.asset", out bool chainCreated);
+            if (chainCreated)
+                SetAll(chain, ("_maxJumps", 3), ("_maxChainJumps", 6), ("_maxTotalJumps", 12), ("_radius", 3.5f), ("_falloff", 0.7f), ("_damage", 8f),
+                    ("_jumpTags", (int)DamageTags.Shock), ("_tieEpsilon", 0.01f));
+
+            EditorUtility.SetDirty(chain); // re-serialize so fields added later appear in the file (values kept)
+            var shock = EnsureAsset<StatusDefinition>(StatusesDir + "/Status_Shock.asset");
+            if (shock.Behaviours.Length == 0)
+            {
+                SetAll(shock, ("_id", "shock"), ("_displayName", "Shock"), ("_duration", 0.6f), ("_maxStacks", 1),
+                    ("_refreshRule", (int)RefreshRule.RefreshDuration), ("_tint", new Color(1f, 0.92f, 0.35f, 1f)),
+                    ("_icon", square), ("_tintPriority", 2));
+                SetArray(shock, "_behaviours", new Object[] { chain });
+            }
+
+            var wet = EnsureAsset<StatusDefinition>(StatusesDir + "/Status_Wet.asset", out bool wetCreated);
+            if (wetCreated)
+                SetAll(wet, ("_id", "wet"), ("_displayName", "Wet"), ("_duration", 6f), ("_maxStacks", 1),
+                    ("_refreshRule", (int)RefreshRule.RefreshDuration), ("_tint", new Color(0.3f, 0.55f, 1f, 1f)),
+                    ("_icon", circle), ("_tintPriority", 1));
+
+            var rule = EnsureAsset<StatusInteractionRule>(RulesDir + "/Rule_WetConductsShock.asset", out bool ruleCreated);
+            if (ruleCreated)
+                SetAll(rule, ("_whenApplied", shock), ("_whenDamageTagged", (int)DamageTags.Shock), ("_targetHas", wet),
+                    ("_damageMultiplier", 2f), ("_bonusJumps", 1), ("_bonusRadius", 1.5f), ("_bonusFalloff", 0f),
+                    ("_consumeTargetStatus", false), ("_conductedEventTag", "wet_conducts_shock"));
+
+            var rules = EnsureAsset<StatusRuleSet>(RulesDir + "/StatusRuleSet_Default.asset", out bool rulesCreated);
+            if (rulesCreated) SetArray(rules, "_rules", new Object[] { rule });
+            return (shock, wet, rules);
+        }
+
+        /// <summary>Heracles' Ultimate (FR-17): lightning on every enemy, applying Shock at maximum chain count (Epic 5).</summary>
         static AbilityDefinition EnsureWrathOfZeus(StatusDefinition shock)
         {
             var wrath = EnsureAsset<AbilityDefinition>(AbilitiesDir + "/Ability_Heracles_WrathOfZeus.asset", out bool created);
@@ -215,6 +259,8 @@ namespace GMR.Editor
                     ("_damage", 100f), ("_damageTags", (int)(DamageTags.Shock | DamageTags.Ultimate)),
                     ("_hitWeight", (int)HitWeight.Heavy), ("_knockback", 8f), ("_rootsCaster", true),
                     ("_status", shock), ("_statusStacks", 1), ("_color", new Color(0.7f, 0.9f, 1f, 0.6f)));
+            // Epic 5: Wrath of Zeus applies Shock at maximum chain count (also upgrades the M5a asset).
+            if (wrath.Status == shock && !wrath.StatusMaxPotency) Set(wrath, "_statusMaxPotency", true);
             return wrath;
         }
 
@@ -419,7 +465,8 @@ namespace GMR.Editor
 
         static void BuildScene(UnityEngine.SceneManagement.Scene scene, InputActionAsset controls, GameObject playerPrefab, Sprite square, Sprite circle, Sprite ring,
             AimConfig aim, InputConfig input, FeedbackConfig feedback, DummyAttackerConfig dummyConfig,
-            TrainingDummyConfig trainingConfig, HealthConfig dummyHealth, ComboConfig combo, RageConfig rage)
+            TrainingDummyConfig trainingConfig, HealthConfig dummyHealth, ComboConfig combo, RageConfig rage,
+            StatusDefinition wet, StatusRuleSet statusRules)
         {
             Camera camera = null;
             foreach (var go in scene.GetRootGameObjects())
@@ -445,9 +492,12 @@ namespace GMR.Editor
             pimSo.ApplyModifiedPropertiesWithoutUndo();
             var bootstrap = bootGo.AddComponent<EncounterBootstrap>();
             Set(bootstrap, "_playerInputManager", pim);
+            Set(bootstrap, "_statusRules", statusRules);
             SetArray(bootstrap, "_spawnPoints", new Object[] { spawn.transform });
             var driver = bootGo.AddComponent<TimeScaleServiceDriver>();
             Set(driver, "_bootstrap", bootstrap);
+            var ticker = bootGo.AddComponent<StatusTicker>();
+            Set(ticker, "_bootstrap", bootstrap);
 
             BuildArena(square);
 
@@ -473,7 +523,7 @@ namespace GMR.Editor
             var help = UiText(canvas.transform, "ControlsHint", font,
                 "Move: L-stick / WASD    DASH: A / Space    Direction Lock (hold): LT / Left Shift\n" +
                 "Club Strike: X / J / LMB    Thunderbolt: Y / K / RMB    Storm Whirl: B / E    Wrath of Zeus (RAGE full): RT / R\n" +
-                "Pause + debug menu: Start / Esc  (or Select / F1)    Menu: D-pad / stick / arrows, A / Enter, back: B / Esc",
+                "Pause + debug menu: Start / Esc  (or Select / F1)    Apply Wet to all (debug): D-pad up / F2    Menu: D-pad / arrows, A / Enter, back: B / Esc",
                 20, TextAlignmentOptions.BottomLeft, new Color(1f, 1f, 1f, 0.85f));
             help.textWrappingMode = TextWrappingModes.Normal;
             var helpRect = help.rectTransform;
@@ -515,10 +565,19 @@ namespace GMR.Editor
             Set(ultimateFx, "_square", square);
             Set(ultimateFx, "_circle", circle);
             Set(ultimateFx, "_ring", ring);
+            var chainFx = feedbackGo.AddComponent<ChainLightningFeedback>();
+            Set(chainFx, "_bootstrap", bootstrap);
+            Set(chainFx, "_config", feedback);
+            Set(chainFx, "_square", square);
 
             var pauseGo = new GameObject("PauseController");
             var pause = pauseGo.AddComponent<PauseController>();
-            BuildPauseMenu(canvas.transform, font, pause, bootstrap, driver, eventSystem, aim, input, feedback, combo, rage);
+            var applyWet = BuildPauseMenu(canvas.transform, font, pause, bootstrap, driver, eventSystem, aim, input, feedback, combo, rage);
+            var devTools = new GameObject("DevTools");
+            var statusTools = devTools.AddComponent<DebugStatusTools>();
+            Set(statusTools, "_bootstrap", bootstrap);
+            Set(statusTools, "_wet", wet);
+            Set(statusTools, "_applyWetButton", applyWet);
 
             BuildDummy("DummyAttacker_A", new Vector2(5f, 2.6f), 0f, bootstrap, dummyConfig, square, circle, ring);
             BuildDummy("DummyAttacker_B", new Vector2(-1.5f, -3.4f), 0.9f, bootstrap, dummyConfig, square, circle, ring);
@@ -527,6 +586,11 @@ namespace GMR.Editor
             BuildTrainingDummy("TrainingDummy_1", new Vector2(-0.3f, 0f), bootstrap, dummyHealth, trainingConfig, square);
             BuildTrainingDummy("TrainingDummy_2", new Vector2(1.3f, 1.0f), bootstrap, dummyHealth, trainingConfig, square);
             BuildTrainingDummy("TrainingDummy_3", new Vector2(1.3f, -1.0f), bootstrap, dummyHealth, trainingConfig, square);
+
+            // Chain lane (Epic 5): five dummies in a line 3 u apart along the bottom (clear of DummyAttacker_B). A dry Thunderbolt on the left one
+            // chains through four (N 3); with Wet on all (D-pad up / F2) the chain reaches all five, blue-white.
+            for (int i = 0; i < 5; i++)
+                BuildTrainingDummy("ChainDummy_" + (i + 1), new Vector2(-6f + 3f * i, -4.8f), bootstrap, dummyHealth, trainingConfig, square);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException("Failed to save " + ScenePath);
@@ -608,6 +672,14 @@ namespace GMR.Editor
             Set(bar, "_background", barBack);
             Set(bar, "_fill", barFill);
             Set(bar, "_width", 1f);
+
+            // Status tint + icon row above the HP bar (hidden with the visual while broken).
+            var icons = new Object[3];
+            for (int i = 0; i < icons.Length; i++)
+                icons[i] = Child(visual, "StatusIcon_" + (i + 1), square, Color.white, 22, new Vector2(0f, 1.0f), new Vector2(0.3f, 0.3f));
+            var statusVisuals = go.AddComponent<StatusVisuals>();
+            Set(statusVisuals, "_body", bodyRenderer);
+            SetArray(statusVisuals, "_icons", icons);
         }
 
         // ---------------------------------------------------------------- UI
@@ -668,7 +740,7 @@ namespace GMR.Editor
             return reference != null ? reference : throw new InvalidOperationException($"No InputActionReference for {map}/{action}.");
         }
 
-        static void BuildPauseMenu(Transform canvas, UiFont font, PauseController pause, EncounterBootstrap bootstrap,
+        static UnityEngine.UI.Button BuildPauseMenu(Transform canvas, UiFont font, PauseController pause, EncounterBootstrap bootstrap,
             TimeScaleServiceDriver driver, EventSystem eventSystem, AimConfig aim, InputConfig input, FeedbackConfig feedback,
             ComboConfig combo, RageConfig rage)
         {
@@ -677,7 +749,7 @@ namespace GMR.Editor
             dim.raycastTarget = true;
 
             var panel = UiImage(dim.transform, "Panel", new Color(0.1f, 0.1f, 0.15f, 0.95f));
-            // 740 tall: fits the canvas height at 16:10 (800) and 16:9 (~759 reference px) with Resume, 10 toggles and the Fill RAGE cheat.
+            // 740 tall: fits the canvas height at 16:10 (800) and 16:9 (~759 reference px) with Resume, 10 toggles and two cheats.
             panel.rectTransform.sizeDelta = new Vector2(580f, 740f);
 
             var title = UiText(panel.transform, "Title", font, "PAUSED", 34, TextAlignmentOptions.Center, Color.white, true);
@@ -703,6 +775,7 @@ namespace GMR.Editor
             var shrinking = BuildToggle(panel.transform, font, "Shrinking Combo window", y -= step);
             var rageDecay = BuildToggle(panel.transform, font, "RAGE decay", y -= step);
             var fillRage = BuildButton(panel.transform, font, "Fill RAGE (cheat)", y -= step + 12f);
+            var applyWet = BuildButton(panel.transform, font, "Apply Wet to all (debug)", y -= step);
 
             var footer = UiText(panel.transform, "Footer", font,
                 "Navigate: D-pad / stick / arrows    Toggle: A / Enter\nClose: Start / Esc / B (back)",
@@ -710,7 +783,7 @@ namespace GMR.Editor
             Place(footer.rectTransform, 0f, -318f, 560f, 56f);
 
             var items = new UnityEngine.UI.Selectable[]
-                { resume, aimAssist, dirLock, buffer, pdFlash, pdSlow, damageNumbers, hitstop, shake, shrinking, rageDecay, fillRage };
+                { resume, aimAssist, dirLock, buffer, pdFlash, pdSlow, damageNumbers, hitstop, shake, shrinking, rageDecay, fillRage, applyWet };
             LinkVertical(items);
             foreach (var item in items)
             {
@@ -744,6 +817,7 @@ namespace GMR.Editor
             Set(pause, "_firstSelected", resume);
 
             dim.gameObject.SetActive(false);
+            return applyWet;
         }
 
         // ---------------------------------------------------------------- combat HUD (Story 4.3)

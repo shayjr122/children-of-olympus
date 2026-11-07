@@ -5,9 +5,12 @@ using GMR.Core.Abilities;
 using GMR.Core.Combat;
 using GMR.Core.Heroes;
 using GMR.Core.Players;
+using GMR.Core.Status;
+using GMR.DevTools;
 using GMR.Runtime.Encounter;
 using GMR.Runtime.Feedback;
 using GMR.Runtime.Heroes;
+using GMR.Runtime.Status;
 using GMR.Runtime.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -25,6 +28,11 @@ namespace GMR.Tests
     /// once through the input pipeline and damage training dummies; Special cooldown; dummy death + respawn; Player
     /// damage with post-hit invulnerability; SFX hooks fire. M5a: Combo on dummies + HUD panel, timeout and damage
     /// reset, Ultimate not-ready cue, Fill RAGE cheat, Wrath of Zeus on all dummies with RAGE consumed and i-frames.
+    /// M5b: StatusTicker ticks each container once per frame; a dry Thunderbolt chains through the chain lane (Combo +4,
+    /// lightning lines, Shock tint); "Apply Wet to all" (menu button and D-pad up) tints every dummy; a Thunderbolt on the
+    /// Wet lane is conducted (x2, CONDUCTED cue, blue-white arcs) and reaches one more dummy.
+    /// Time: captureFramerate fixes 1/60 s per frame and FrameClock makes hitstop/slow-mo count frames too, so the whole
+    /// run is frame-deterministic; no step may wait on the wall clock (that was the M5a flakiness).
     /// </summary>
     public sealed class SandboxSmokeTest : InputTestFixture
     {
@@ -124,7 +132,11 @@ namespace GMR.Tests
             // Pause through input (Start) -> TimeScaleService.
             var pause = Object.FindAnyObjectByType<PauseController>();
             Assert.IsNotNull(pause);
-            yield return new WaitForSecondsRealtime(0.3f);
+            // The Perfect Dodge slow-mo runs on the Encounter's unscaled clock, which under captureFramerate advances
+            // 1/60 s per frame (FrameClock): it ends after a fixed number of frames on any machine. Never wait on the wall clock.
+            for (int i = 0; i < 120 && context.TimeScale.ActiveCount > 0; i++) yield return null;
+            Assert.AreEqual(0, context.TimeScale.ActiveCount, "Perfect Dodge slow-mo should have ended");
+            Assert.AreEqual(1f, Time.timeScale);
             yield return Tap(_gamepad.startButton);
             Assert.IsTrue(pause.IsOpen, "Start should open the pause menu");
             Assert.AreEqual(0f, Time.timeScale);
@@ -176,8 +188,11 @@ namespace GMR.Tests
         IEnumerator AbilitiesHitTrainingDummies(GMR.Core.Encounter.EncounterContext context, GMR.Runtime.Players.PlayerRoot root,
             List<AbilityUsed> used)
         {
-            var dummies = context.Enemies.All.OfType<IDamageable>().ToList();
+            // The three training dummies in the middle (the chain lane along the bottom is for the M5b steps).
+            var dummies = context.Enemies.All.OfType<IDamageable>()
+                .Where(d => ((Component)d).name.StartsWith("TrainingDummy_")).ToList();
             Assert.AreEqual(3, dummies.Count, "three training dummies register as damageable enemies");
+            Assert.AreEqual(8, context.Enemies.All.OfType<IDamageable>().Count(), "plus the five chain-lane dummies");
             var hits = new List<HitLanded>();
             context.Events.OnHitLanded += hits.Add;
             var sfx = Object.FindAnyObjectByType<SfxHookPlayer>();
@@ -301,6 +316,7 @@ namespace GMR.Tests
             Assert.IsTrue(root.Hero != null);
 
             yield return ComboRageAndUltimate(context, root, front, cues);
+            yield return StatusesAndChainLightning(context, root, cues);
         }
 
         /// <summary>
@@ -433,8 +449,114 @@ namespace GMR.Tests
             Assert.IsTrue(cues.Contains(SfxCue.UltimateUsed));
             yield return new WaitForSeconds(0.8f);
             var struck = hits.Where(h => (h.Result.Tags & DamageTags.Ultimate) != 0).Select(h => h.TargetId).Distinct().Count();
-            Assert.AreEqual(3, struck, "Wrath of Zeus strikes all three training dummies");
+            Assert.AreEqual(context.Enemies.All.OfType<IDamageable>().Count(), struck, "Wrath of Zeus strikes every training dummy");
+            Assert.IsTrue(hits.Any(h => (h.Result.Tags & (DamageTags.Ultimate | DamageTags.ChainJump)) ==
+                                        (DamageTags.Ultimate | DamageTags.ChainJump)), "Wrath of Zeus applies Shock: its chains keep the Ultimate tag");
             Assert.AreEqual(1, used.Count);
+        }
+
+        /// <summary>M5b (Stories 5.1-5.3): status ticking, Shock chain lightning, Wet and Conducted Shock in the Sandbox.</summary>
+        IEnumerator StatusesAndChainLightning(GMR.Core.Encounter.EncounterContext context, GMR.Runtime.Players.PlayerRoot root,
+            List<SfxCue> cues)
+        {
+            var hero = root.Hero;
+            var state = root.CombatState;
+
+            // StatusTicker: every registered container exactly once per frame.
+            var ticker = Object.FindAnyObjectByType<StatusTicker>();
+            Assert.IsNotNull(ticker, "StatusTicker missing from Sandbox");
+            Assert.That(context.Statuses.Count, Is.GreaterThanOrEqualTo(9), "8 dummies + the Hero carry status containers");
+            var before = context.Statuses.All.Select(c => c.TickCount).ToArray();
+            int framesBefore = ticker.FramesTicked;
+            yield return Frames(5);
+            Assert.AreEqual(5, ticker.FramesTicked - framesBefore);
+            for (int i = 0; i < before.Length; i++)
+                Assert.AreEqual(before[i] + 5, context.Statuses.All[i].TickCount, "ticked exactly once per frame");
+
+            // Lane dummies (Wrath of Zeus broke them all: wait for the respawn) and a quiet Combo.
+            var lane = Enumerable.Range(1, 5).Select(i => GameObject.Find("ChainDummy_" + i).GetComponent<TrainingDummy>()).ToList();
+            Teleport(hero, new Vector2(-8.5f, -4.8f));
+            yield return new WaitForSeconds(2.2f);
+            Assert.IsTrue(lane.All(d => d.IsAlive), "lane dummies respawned");
+            Assert.AreEqual(0, state.Combo.Count);
+            var chainFx = Object.FindAnyObjectByType<ChainLightningFeedback>();
+            Assert.IsNotNull(chainFx, "ChainLightningFeedback missing");
+            var hits = new List<HitLanded>();
+            var conducted = new List<ConductedShock>();
+            context.Events.OnHitLanded += hits.Add;
+            context.Events.OnConductedShock += conducted.Add;
+
+            // Dry Thunderbolt on the left lane dummy: Shock chains through four (N 3), each once, with falloff.
+            int lines = chainFx.LinesDrawn;
+            yield return ThunderboltAlongLane(root, lane[0]);
+            var dryHit = hits.Where(h => lane.Contains(h.Target as TrainingDummy)).ToList();
+            CollectionAssert.AreEquivalent(lane.Take(4).ToList(), dryHit.Select(h => h.Target).Distinct().ToList(),
+                "dry chain: first four lane dummies");
+            Assert.AreEqual(4, dryHit.Count, "each hit once");
+            Assert.AreEqual(3, dryHit.Count(h => (h.Result.Tags & DamageTags.ChainJump) != 0));
+            Assert.IsTrue(dryHit.All(h => h.Source == SourceId.ForPlayer(root.Id)), "chain jumps carry the Player's SourceId");
+            Assert.AreEqual(3, chainFx.LinesDrawn - lines, "a lightning line per jump");
+            Assert.AreEqual(4, state.Combo.Count, "a chain hitting 4 enemies raises Combo by 4");
+            Assert.IsEmpty(conducted);
+            float dryFirst = dryHit[0].Result.Dealt;
+
+            // Apply Wet to all: pause-menu button, then the debug key (D-pad up) refreshes it.
+            var tools = Object.FindAnyObjectByType<DebugStatusTools>();
+            Assert.IsNotNull(tools, "DebugStatusTools missing");
+            var pause = Object.FindAnyObjectByType<PauseController>();
+            yield return Tap(_gamepad.startButton);
+            Assert.IsTrue(pause.IsOpen);
+            var wetButton = Object.FindObjectsByType<UnityEngine.UI.Button>(FindObjectsInactive.Include)
+                .FirstOrDefault(b => b.name.StartsWith("Apply Wet"));
+            Assert.IsNotNull(wetButton, "Apply Wet to all button missing from the pause menu");
+            wetButton.onClick.Invoke();
+            int damageables = context.Enemies.All.OfType<IDamageable>().Count();
+            Assert.AreEqual(damageables, tools.LastAppliedCount);
+            yield return Tap(_gamepad.startButton);
+            Assert.IsFalse(pause.IsOpen);
+            var wet = lane[0].Statuses.Instances.Select(i => i.Definition).FirstOrDefault(d => d.Id == "wet");
+            Assert.IsNotNull(wet, "lane dummy is Wet");
+            foreach (var d in context.Enemies.All.OfType<IDamageable>()) d.Statuses.Remove(wet, Time.time);
+            Assert.IsFalse(lane[0].Statuses.Has(wet));
+            yield return Tap(_gamepad.dpad.up);
+            Assert.AreEqual(damageables, tools.LastAppliedCount, "D-pad up applies Wet to all too");
+            Assert.IsTrue(context.Enemies.All.OfType<IDamageable>().All(d => d.Statuses.Has(wet)));
+            yield return Frames(1);
+            var visuals = lane[4].GetComponent<StatusVisuals>();
+            Assert.Greater(visuals.CurrentTint.b, visuals.CurrentTint.r, "Wet tints the dummy blue");
+            Assert.GreaterOrEqual(visuals.VisibleIcons, 1, "status icon above the dummy");
+
+            // Wet Thunderbolt after the cooldown and a Combo timeout: conducted, x2, reaches the fifth dummy.
+            yield return new WaitForSeconds(2.2f);
+            Assert.AreEqual(0, state.Combo.Count);
+            hits.Clear();
+            lines = chainFx.LinesDrawn;
+            int conductedLines = chainFx.ConductedLinesDrawn;
+            yield return ThunderboltAlongLane(root, lane[0]);
+            var wetHit = hits.Where(h => lane.Contains(h.Target as TrainingDummy)).ToList();
+            CollectionAssert.AreEquivalent(lane, wetHit.Select(h => h.Target).Distinct().ToList(), "Wet chain reaches all five");
+            Assert.AreEqual(5, wetHit.Count);
+            Assert.AreEqual(dryFirst * 2f, wetHit[0].Result.Dealt, 1e-3f, "Shock on a Wet dummy deals 2x its dry damage");
+            Assert.That(conducted.Count, Is.GreaterThanOrEqualTo(5), "ConductedShock for each conducted application");
+            Assert.AreEqual(4, chainFx.ConductedLinesDrawn - conductedLines, "blue-white arcs");
+            Assert.IsTrue(cues.Contains(SfxCue.Conducted), "CONDUCTED! popup + cue");
+            Assert.AreEqual(5, state.Combo.Count);
+            Assert.IsTrue(lane[0].Statuses.Has(wet), "Wet is not consumed by Shock (default)");
+        }
+
+        IEnumerator ThunderboltAlongLane(GMR.Runtime.Players.PlayerRoot root, TrainingDummy first)
+        {
+            var hero = root.Hero;
+            Teleport(hero, first.Position + new Vector2(-2.5f, 0f));
+            root.Aim.Update(Vector2.right, false, false);
+            yield return Frames(2);
+            int specials = 0;
+            System.Action<AbilityUsed> count = u => { if (u.Slot == AbilitySlot.Special) specials++; };
+            root.Context.Events.OnAbilityUsed += count;
+            yield return Tap(_gamepad.buttonNorth);
+            yield return new WaitForSeconds(0.6f);
+            root.Context.Events.OnAbilityUsed -= count;
+            Assert.AreEqual(1, specials, "Y fires Thunderbolt. " + Diag(root));
         }
     }
 }

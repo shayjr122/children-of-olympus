@@ -95,6 +95,19 @@ namespace GMR.Tests
             bolt.StatusStacks = 2;
             Assert.IsTrue(bolt.StatusPayload.HasStatus);
             Assert.AreEqual(2, bolt.StatusPayload.Stacks);
+            Assert.IsFalse(bolt.StatusPayload.MaxPotency);
+            bolt.StatusMaxPotency = true; // Wrath of Zeus: Shock at maximum chain count
+            Assert.IsTrue(bolt.StatusPayload.MaxPotency);
+        }
+
+        [Test]
+        public void WrathOfZeusAsset_AppliesShockAtMaxPotency()
+        {
+            var wrath = UnityEditor.AssetDatabase.LoadAssetAtPath<AbilityDefinition>("Assets/Data/Abilities/Ability_Heracles_WrathOfZeus.asset");
+            Assert.IsNotNull(wrath);
+            Assert.IsTrue(wrath.StatusPayload.HasStatus);
+            Assert.AreEqual("shock", wrath.Status.Id);
+            Assert.IsTrue(wrath.StatusPayload.MaxPotency);
         }
     }
 }

@@ -24,10 +24,13 @@ namespace GMR.Core.Controls
         /// <summary>Debug map ToggleDebugMenu (Select / F1). Opens the same pause/debug menu as Pause.</summary>
         public bool DebugMenuPressed;
 
+        /// <summary>Debug map ApplyWetToAll (D-pad up / F2): DevTools applies Wet to every enemy.</summary>
+        public bool DebugApplyWetPressed;
+
         /// <summary>True if any one-frame press flag is set.</summary>
         public readonly bool AnyPressed =>
             DashPressed || BasicPressed || SpecialPressed || SignaturePressed ||
-            UltimatePressed || HeroSwapPressed || PausePressed || DebugMenuPressed;
+            UltimatePressed || HeroSwapPressed || PausePressed || DebugMenuPressed || DebugApplyWetPressed;
 
         /// <summary>Clears the one-frame press flags; axes and held states are kept.</summary>
         public void ClearPresses()
@@ -40,6 +43,7 @@ namespace GMR.Core.Controls
             HeroSwapPressed = false;
             PausePressed = false;
             DebugMenuPressed = false;
+            DebugApplyWetPressed = false;
         }
     }
 }

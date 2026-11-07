@@ -4,6 +4,7 @@
     "references": [
         "GMR.Core",
         "GMR.Runtime",
+        "GMR.DevTools",
         "Unity.InputSystem",
         "Unity.InputSystem.TestFramework",
         "UnityEngine.TestRunner",

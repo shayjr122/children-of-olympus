@@ -70,5 +70,22 @@ namespace GMR.Tests
             Assert.AreEqual(0f, s.Resolve(0.5f));
             Assert.AreEqual(0f, s.Current);
         }
+
+        [Test]
+        public void Advance_IsTheFrameClock_RequestsExpireAfterAFixedNumberOfFrames()
+        {
+            // Under captureFramerate 60 the driver advances 1/60 s per frame: a 0.03 s hitstop always spans 2 frames,
+            // however fast or slow the machine renders them (the M5a flaky-test root cause was wall-clock expiry).
+            var s = new TimeScaleService();
+            const float frame = 1f / 60f;
+            Assert.AreEqual(1f, s.Advance(frame));
+            s.Request(0.05f, 0.03f, s.UnscaledNow);
+            Assert.AreEqual(0.05f, s.Advance(frame), "frame 1: still in hitstop");
+            Assert.AreEqual(1f, s.Advance(frame), "frame 2: hitstop over");
+            Assert.AreEqual(3f * frame, s.UnscaledNow, 1e-6f);
+            s.Advance(-1f);
+            s.Advance(float.NaN);
+            Assert.AreEqual(3f * frame, s.UnscaledNow, 1e-6f, "negative / NaN deltas ignored");
+        }
     }
 }

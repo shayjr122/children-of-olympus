@@ -97,7 +97,7 @@ namespace GMR.Runtime.Feedback
 
         void Update()
         {
-            float dt = Time.unscaledDeltaTime;
+            float dt = GMR.Runtime.Encounter.FrameClock.UnscaledDeltaTime;
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var fx = _active[i];

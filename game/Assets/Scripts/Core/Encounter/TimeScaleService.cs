@@ -7,7 +7,8 @@ namespace GMR.Core.Encounter
     /// The single owner of the game's time scale (AD-12). Callers push requests; the lowest active scale wins
     /// (pause = 0 beats a 0.3 slow-mo beats a 1.0 default). Timed requests expire on UNSCALED time, so a pause or
     /// slow-mo never freezes its own expiry. The Runtime TimeScaleServiceDriver is the only code that copies
-    /// <see cref="Resolve"/> into UnityEngine.Time.timeScale.
+    /// <see cref="Resolve"/> into UnityEngine.Time.timeScale, and the only code that advances <see cref="UnscaledNow"/>
+    /// (once per frame, by the frame's presentation delta), so every requester in a frame stamps the same clock.
     /// </summary>
     public sealed class TimeScaleService
     {
@@ -22,6 +23,19 @@ namespace GMR.Core.Encounter
 
         readonly List<ScaleRequest> _requests = new List<ScaleRequest>(4);
         int _nextHandle = 1;
+
+        /// <summary>
+        /// The Encounter's unscaled clock in seconds, advanced once per frame by <see cref="Advance"/>. Requesters pass it
+        /// as <c>nowUnscaled</c>. It counts presented frames, not the wall clock, when frames are captured at a fixed rate.
+        /// </summary>
+        public float UnscaledNow { get; private set; }
+
+        /// <summary>Advances <see cref="UnscaledNow"/> by <paramref name="unscaledDelta"/> (negative/NaN ignored) and resolves.</summary>
+        public float Advance(float unscaledDelta)
+        {
+            if (unscaledDelta > 0f) UnscaledNow += unscaledDelta;
+            return Resolve(UnscaledNow);
+        }
 
         /// <summary>Scale from the last <see cref="Resolve"/>.</summary>
         public float Current { get; private set; } = DefaultScale;

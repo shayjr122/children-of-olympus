@@ -46,7 +46,7 @@ namespace GMR.Runtime.Feedback
                 return;
             }
 
-            _remaining -= Time.unscaledDeltaTime;
+            _remaining -= GMR.Runtime.Encounter.FrameClock.UnscaledDeltaTime;
             float k = Mathf.Clamp01(_remaining / Mathf.Max(_duration, 0.0001f));
             var c = Color.Lerp(_unflashed, _flashColor, k);
             c.a = _unflashed.a;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GMR.Core.Encounter;
 using GMR.Core.Players;
+using GMR.Core.Status;
 using GMR.Runtime.Players;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -21,6 +22,9 @@ namespace GMR.Runtime.Encounter
 
         [SerializeField] PlayerInputManager _playerInputManager;
 
+        [SerializeField, Tooltip("Status interaction rules in play (Rule_WetConductsShock, ...).")]
+        StatusRuleSet _statusRules;
+
         [SerializeField, Tooltip("Join Player 0 automatically when the scene starts.")]
         bool _joinFirstPlayerOnStart = true;
 
@@ -31,13 +35,20 @@ namespace GMR.Runtime.Encounter
         EncounterContext _context;
 
         /// <summary>The Encounter's context. Created on first access so Awake/OnEnable order never matters.</summary>
-        public EncounterContext Context => _context ??= new EncounterContext(unchecked((ulong)_runSeed));
+        public EncounterContext Context => _context ??= CreateContext();
 
         /// <summary>Joined Players in join order.</summary>
         public IReadOnlyList<PlayerRoot> PlayerRoots => _players;
 
         /// <summary>Raised after a joined Player has been initialized.</summary>
         public event Action<PlayerRoot> PlayerJoined;
+
+        EncounterContext CreateContext()
+        {
+            var context = new EncounterContext(unchecked((ulong)_runSeed));
+            context.StatusServices.Rules = _statusRules;
+            return context;
+        }
 
         void Awake()
         {

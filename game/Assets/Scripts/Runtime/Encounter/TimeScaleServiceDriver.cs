@@ -4,20 +4,30 @@ namespace GMR.Runtime.Encounter
 {
     /// <summary>
     /// Shell of TimeScaleService (AD-12): the ONLY code in the project that writes Time.timeScale. Every frame it
-    /// copies the service's resolved scale (lowest request wins). Restores Time.timeScale to 1 when disabled.
+    /// advances the service's unscaled clock by <see cref="FrameClock.UnscaledDeltaTime"/> and copies the resolved scale
+    /// (lowest request wins). Restores Time.timeScale to 1 when disabled.
     /// </summary>
     [DefaultExecutionOrder(-150)]
     public sealed class TimeScaleServiceDriver : MonoBehaviour
     {
         [SerializeField] EncounterBootstrap _bootstrap;
 
-        void Update() => ApplyNow();
+        void Update()
+        {
+            if (_bootstrap == null) return;
+            Apply(_bootstrap.Context.TimeScale.Advance(FrameClock.UnscaledDeltaTime));
+        }
 
-        /// <summary>Resolves and applies immediately (used when pausing so gameplay stops this frame).</summary>
+        /// <summary>Resolves at the current clock and applies immediately (used when pausing so gameplay stops this frame).</summary>
         public void ApplyNow()
         {
             if (_bootstrap == null) return;
-            float scale = _bootstrap.Context.TimeScale.Resolve(Time.unscaledTime);
+            var service = _bootstrap.Context.TimeScale;
+            Apply(service.Resolve(service.UnscaledNow));
+        }
+
+        static void Apply(float scale)
+        {
             if (!Mathf.Approximately(Time.timeScale, scale)) Time.timeScale = scale;
         }
 

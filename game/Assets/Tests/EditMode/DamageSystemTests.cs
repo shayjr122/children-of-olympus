@@ -31,6 +31,7 @@ namespace GMR.Tests
             public bool IsAlive => !Health.IsDepleted;
             public Vector2 Position => new Vector2(1f, 2f);
             public Health Health { get; }
+            public StatusContainer Statuses => null;
             public float KnockbackResistance { get; }
             public bool IsInvulnerable(float now) => Invulnerability.IsInvulnerable(now);
 
@@ -47,10 +48,10 @@ namespace GMR.Tests
             public int Calls;
             public StatusPayload Last;
 
-            public void Apply(IDamageable target, in StatusPayload payload, SourceId source, float now)
+            public void Apply(IDamageable target, in DamageRequest request, in DamageResult result)
             {
                 Calls++;
-                Last = payload;
+                Last = request.Status;
             }
         }
 

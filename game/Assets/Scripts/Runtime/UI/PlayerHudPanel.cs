@@ -128,7 +128,7 @@ namespace GMR.Runtime.UI
         {
             if (_root == null) return; // CombatHud destroys panels whose Player left
             Refresh();
-            AnimateCues(Time.unscaledDeltaTime);
+            AnimateCues(GMR.Runtime.Encounter.FrameClock.UnscaledDeltaTime);
         }
 
         void Refresh()

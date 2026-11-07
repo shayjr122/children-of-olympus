@@ -80,6 +80,18 @@ namespace GMR.Core.Feedback
         [SerializeField, Tooltip("Ring shown around the Hero during the Ultimate's startup (charge-up).")] Color _ultimateChargeColor = new Color(1f, 0.9f, 0.4f, 0.8f);
         [SerializeField, Tooltip("'NOT READY' popup color when the Ultimate is pressed below full RAGE.")] Color _ultimateNotReadyColor = new Color(1f, 0.45f, 0.4f, 1f);
 
+        [Header("Statuses (FR-18..FR-21): chain lightning lines, Conducted Shock")]
+        [SerializeField, Tooltip("Lightning line of a Shock chain jump.")] Color _chainColor = new Color(1f, 0.93f, 0.45f, 1f);
+        [SerializeField, Tooltip("Lightning line of a conducted jump (leaving or landing on a Wet target): blue-white.")]
+        Color _conductedChainColor = new Color(0.72f, 0.92f, 1f, 1f);
+        [SerializeField, Min(0f), Tooltip("Line width, units.")] float _chainWidth = 0.1f;
+        [SerializeField, Min(0f), Tooltip("Conducted line width, units.")] float _conductedChainWidth = 0.2f;
+        [SerializeField, Min(0f), Tooltip("Line lifetime, real seconds.")] float _chainDuration = 0.35f;
+        [SerializeField, Min(1), Tooltip("Zigzag segments per jump.")] int _chainSegments = 5;
+        [SerializeField, Min(0f), Tooltip("Zigzag sideways jitter, units (Feedback RNG stream).")] float _chainJitter = 0.25f;
+        [SerializeField, Tooltip("'CONDUCTED!' popup color.")] Color _conductedPopupColor = new Color(0.55f, 0.85f, 1f, 1f);
+        [SerializeField, Tooltip("Show the 'CONDUCTED!' popup on Conducted Shock.")] bool _conductedPopup = true;
+
         [Header("SFX hooks (placeholder: silent unless clips are assigned on SfxHookPlayer)")]
         [SerializeField] bool _sfxHooks = true;
         [SerializeField, Tooltip("Log every fired SFX cue to the Console.")] bool _logSfxCues;
@@ -124,6 +136,16 @@ namespace GMR.Core.Feedback
         public float UltimateBoltDuration { get => _ultimateBoltDuration; internal set => _ultimateBoltDuration = value; }
         public Color UltimateChargeColor { get => _ultimateChargeColor; internal set => _ultimateChargeColor = value; }
         public Color UltimateNotReadyColor { get => _ultimateNotReadyColor; internal set => _ultimateNotReadyColor = value; }
+
+        public Color ChainColor { get => _chainColor; internal set => _chainColor = value; }
+        public Color ConductedChainColor { get => _conductedChainColor; internal set => _conductedChainColor = value; }
+        public float ChainWidth { get => _chainWidth; internal set => _chainWidth = value; }
+        public float ConductedChainWidth { get => _conductedChainWidth; internal set => _conductedChainWidth = value; }
+        public float ChainDuration { get => _chainDuration; internal set => _chainDuration = value; }
+        public int ChainSegments { get => Mathf.Max(1, _chainSegments); internal set => _chainSegments = value; }
+        public float ChainJitter { get => _chainJitter; internal set => _chainJitter = value; }
+        public Color ConductedPopupColor { get => _conductedPopupColor; internal set => _conductedPopupColor = value; }
+        public bool ConductedPopup { get => _conductedPopup; internal set => _conductedPopup = value; }
 
         public bool SfxHooks { get => _sfxHooks; internal set => _sfxHooks = value; }
         public bool LogSfxCues { get => _logSfxCues; internal set => _logSfxCues = value; }
