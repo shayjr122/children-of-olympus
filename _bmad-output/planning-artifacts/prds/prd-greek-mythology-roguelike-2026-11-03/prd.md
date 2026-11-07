@@ -75,7 +75,7 @@ The prototype is built so the game's long-term technical bets hold from day one:
 - **Aim Assist** — light snapping of the Aim Direction to the nearest enemy within a cone around the movement direction (toggleable).
 - **Direction Lock** — a held button that freezes the Aim Direction while the Hero moves freely (toggleable).
 - **Tuning Asset** — a ScriptableObject holding designer-tunable values.
-- **Combat Intensity** — a 0–1 value derived from combat state (enemy count, RAGE, HP) that drives dynamic music (Phase 2).
+- **Combat Intensity** — a 0–1 value derived from combat state (enemy count, RAGE, HP) that drives dynamic music state selection (Phase 2).
 - **Session Telemetry** — the per-session log of combat events used to measure Success Metrics.
 
 ## 4. Features
@@ -305,10 +305,11 @@ The prototype writes a per-session log file (local, JSON or CSV) recording: Hero
 #### FR-31: Combat Intensity
 A Combat Intensity value (0–1) is computed continuously from combat state: living enemy count, RAGE level and Player HP (weights in a Tuning Asset), smoothed to avoid flicker. With N Players it aggregates across them `[ASSUMPTION: max of per-player values]`.
 
-#### FR-32: Layered music crossfade
-Three layers of one combat piece (calm, combat, high intensity), same BPM and key, play in sync, and an Audio Mixer crossfades between them based on Combat Intensity thresholds with configurable fade times. Placeholder tracks are generated with ACE-Step 1.5, saved under `Assets/Audio/Placeholder/` with the `AI_PLACEHOLDER_` prefix and documented in `manifest.md` (caption, seed, BPM, key).
+#### FR-32: State-driven music crossfade
+Four separate, independently looping tracks (calm, combat, advanced-combat, boss) crossfade smoothly through an Audio Mixer according to game state. Calm plays after combat and in rooms with no combat. Combat plays during normal combat. Advanced-combat is combat with a distinct added element (e.g. faster tempo) for high intensity. Boss plays for bosses and sub-bosses. The tracks do not share BPM or key, so each state change is clearly audible. Combat vs advanced-combat is chosen by Combat Intensity thresholds with hysteresis, calm when no enemies are alive, and boss via an explicit encounter flag. Fade times are configurable. Placeholder tracks are generated with ACE-Step 1.5, saved under `Assets/Audio/Placeholder/` with the `AI_PLACEHOLDER_` prefix and documented in `manifest.md` (caption, seed, BPM, key).
 **Consequences (testable):**
-- Layers never drift out of sync during a full Encounter.
+- Each track loops on its own without an audible seam, and tracks need no shared tempo, key or sample-accurate sync.
+- Only the tracks involved in a transition are audible during a crossfade, and the state never flickers between combat and advanced-combat (hysteresis).
 - Transitions are audible but not abrupt (no clicks), and fade times are tunable.
 - Placeholder music is never used in marketing material without approval.
 
@@ -346,7 +347,7 @@ Three layers of one combat piece (calm, combat, high intensity), same BPM and ke
 | 0 | M3 | Unity skeleton, Input System, Pixel Perfect Camera, test scene | NFR-3, NFR-6, NFR-9 |
 | 1A | M4 | Movement, aim + toggles, DASH/Perfect Dodge framework, Ability Slots, Heracles kit vs. training dummies | FR-1–FR-4, FR-6–FR-10, FR-27 (basic), FR-29 (partial) |
 | 1B | M5 | Combo, RAGE, Ultimate, Status System (Shock, Wet, interaction), Theseus kit, chains, Hero Select/Swap, 3 Archetypes, Arena/Waves, seeded RNG, HUD, telemetry → **"is it fun" gate** | FR-11–FR-26, FR-28, FR-30 |
-| 2 | M6 | Dynamic music: Combat Intensity, 3-layer crossfade, ACE-Step placeholders | FR-31, FR-32 |
+| 2 | M6 | Dynamic music: Combat Intensity, 4-track state-driven crossfade (calm, combat, advanced-combat, boss), ACE-Step placeholders | FR-31, FR-32 |
 
 `[ASSUMPTION]` M5 is too large for one 1–3 h session and must be split into several sub-milestones in the epics breakdown. Seeded RNG streams (FR-26) should land early in 1B (before enemies/waves). Theseus + Hero Swap should land after the Status System. FR-5 (right-stick aim) is built only if SM-6 fails.
 

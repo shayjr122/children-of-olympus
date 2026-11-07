@@ -56,7 +56,7 @@ This document provides the complete epic and story breakdown for Greek Mythology
 - FR-29: Controller-navigable pause/settings/debug menu with all listed toggles, seed entry, restart, god mode, enemy freeze.
 - FR-30: Session Telemetry: local per-session file with the listed metrics; summary on results panel; no network.
 - FR-31: Combat Intensity 0-1 from enemy count, RAGE, HP; smoothed; max across Players.
-- FR-32: Three synced music layers crossfaded by Combat Intensity thresholds through an Audio Mixer; ACE-Step placeholders with manifest.
+- FR-32: Four independent looping music tracks (calm, combat, advanced-combat, boss) crossfaded by game state through an Audio Mixer (no shared BPM/key); ACE-Step placeholders with manifest.
 
 ### NonFunctional Requirements
 
@@ -88,7 +88,7 @@ From the Architecture Spine (no starter template; project is created fresh with 
 - AD-11: `CombatEvents` typed past-tense events; `ComboCounter`/`RageMeter` per Player react only to own `SourceId`.
 - AD-12: `TimeScaleService` sole writer of `Time.timeScale`; `PendingHitRegistry` for Perfect Dodge.
 - AD-13: One `EnemyBrain` FSM; `ArchetypeDefinition` + `IAttackPattern` (Charge/RangedShot/Slam); `WaveBuilder` (Core) + `WaveSpawner`.
-- AD-14: `ICombatIntensitySource` defined in Core; `CombatIntensityTracker` ships with telemetry (M5), consumed by `MusicLayerMixer` (M6).
+- AD-14: `ICombatIntensitySource` defined in Core; `CombatIntensityTracker` ships with telemetry (M5), consumed by `MusicStateMixer` (M6).
 - AD-15: `TelemetryRecorder` passive JSONL writer to `persistentDataPath/telemetry/`.
 - AD-16: Single owner per combat mutation (HP, invulnerability, knockback, ticking, events); FIFO re-entrancy with 256 cap.
 - Infra: `.gitignore` (Unity template rooted at `game/`), `.gitattributes` LFS scoped to `game/Assets/**`, `tools/setup-git.ps1` for `unityyamlmerge`, Force Text serialization, pinned packages (URP, Input System 1.19.x, Test Framework).
@@ -188,7 +188,7 @@ Every session writes telemetry; the team and external testers play a Steam Deck/
 **FRs covered:** FR-5 (conditional), FR-7, FR-16, FR-21, FR-23 (telemetry parts), FR-30, FR-31 (tracker); NFR-5. **Milestones:** M5f, M5g.
 
 ### Epic 10: Dynamic Combat Music
-The fight's music shifts between calm, combat and high-intensity layers in sync with combat state.
+The music crossfades between four independent tracks (calm, combat, advanced-combat, boss) as the game state changes.
 **FRs covered:** FR-31 (consumer), FR-32. **Milestones:** M6-pre (music generation), M6.
 
 ### Epic 11: Prototype Wrap-up
@@ -1077,56 +1077,56 @@ So that I can hit what I aim at.
 
 ## Epic 10: Dynamic Combat Music
 
-### Story 10.1: Generate three synced placeholder layers with ACE-Step
+### Story 10.1: Generate four independent placeholder tracks with ACE-Step
 
 - **ID:** 10.1 | **Milestone:** M6-pre (separate session before M6) | **Est. human:** 90-120 min (generation + listening iterations)
 - **Refs:** FR-32 (placeholder content), kickoff M6
 - **Tests:** Manual listening; `manifest.md` complete.
 
 As the team,
-I want calm, combat and high-intensity layers of one piece at the same BPM and key,
-So that M6 can crossfade between them.
+I want four distinct tracks (calm, combat, advanced-combat, boss) that differ clearly in tempo, key and feel,
+So that M6 can crossfade between them and each state change is audible.
 
 **Acceptance Criteria:**
 
 **Given** ACE-Step 1.5 (tier1, turbo INT8, no LM, `[Instrumental]`)
-**When** three layers are generated with detailed English captions (instruments, mood, BPM, key)
-**Then** files `AI_PLACEHOLDER_combat_calm/_combat/_high.*` sit in `game/Assets/Audio/Placeholder/` with equal BPM, key and length, and `manifest.md` records caption, seed, BPM and key for each
+**When** four tracks are generated with detailed English captions (instruments, mood, BPM, key); test values: calm 90 BPM D minor, combat 150 BPM D minor, advanced-combat 176 BPM D minor (distinct added element, e.g. faster tempo), boss 160 BPM C minor
+**Then** files `AI_PLACEHOLDER_calm/_combat/_advanced/_boss.*` sit in `game/Assets/Audio/Placeholder/`, each loops cleanly on its own, they need not share BPM, key or length, and `manifest.md` records caption, seed, BPM and key for each
 **And** the manifest states the files are placeholders, not for marketing without approval
 **Flag:** if listening iterations exceed the session, stop after one approved set; further variants are a separate session.
 
-### Story 10.2: MusicLayerMixer with sample-accurate sync
+### Story 10.2: MusicStateMixer with independent looping tracks
 
 - **ID:** 10.2 | **Milestone:** M6 | **Est. human:** 30 min
 - **Refs:** FR-32; AD-14
-- **Tests:** PlayMode `MusicLayerSyncTest` (three sources scheduled on the same DSP time; `timeSamples` equal after 60 s within tolerance); manual listening.
+- **Tests:** PlayMode `MusicLoopTest` (four sources each loop independently; after a crossfade the outgoing source is silent and stopped/paused); manual listening.
 
 As a Player,
-I want the three layers to play in perfect sync through an Audio Mixer,
-So that crossfades never sound off-beat.
+I want the four tracks to loop independently through an Audio Mixer with smooth crossfades,
+So that state changes sound clean and clearly different.
 
 **Acceptance Criteria:**
 
-**Given** an Audio Mixer with groups Calm, Combat, High under Music
+**Given** an Audio Mixer with groups Calm, Combat, Advanced, Boss under Music
 **When** the Arena starts
-**Then** `MusicLayerMixer` starts three looping sources with `PlayScheduled` on the same DSP time, and they never drift during a full Encounter
+**Then** `MusicStateMixer` has four looping sources, one per track, with no shared tempo, key or DSP-time sync required, and a requested state crossfades from the current track to the target track over the configured fade time without clicks
 
-### Story 10.3: Intensity-driven crossfade and tuning by ear
+### Story 10.3: State selection and tuning by ear
 
 - **ID:** 10.3 | **Milestone:** M6 | **Est. human:** 40 min (listening, tuning thresholds)
 - **Refs:** FR-31, FR-32; AD-14
-- **Tests:** EditMode `MusicThresholdTests` (intensity -> target layer volumes with hysteresis); manual: hear transitions during an Encounter.
+- **Tests:** EditMode `MusicStateResolverTests` (living enemies, intensity, boss flag -> target state: calm with no enemies, combat vs advanced by threshold with hysteresis, boss overrides when flagged); manual: hear transitions during an Encounter.
 
 As a Player,
-I want the music to swell as the fight intensifies and calm down after a wave,
+I want the music to switch to a more intense track as the fight intensifies, a boss track for bosses, and calm after a wave,
 So that the fight feels alive.
 
 **Acceptance Criteria:**
 
 **Given** `MusicConfig` thresholds and fade times
-**When** `ICombatIntensitySource.Current` crosses a threshold
-**Then** mixer group volumes crossfade to the matching layer over the configured time, with no clicks
-**And** `MusicLayerMixer` depends only on `ICombatIntensitySource`, not on combat internals
+**When** the resolved state changes (no enemies alive -> calm; `ICombatIntensitySource.Current` crossing the combat/advanced threshold, with hysteresis; encounter boss flag set -> boss)
+**Then** the mixer crossfades to the matching track over the configured time, with no clicks
+**And** `MusicStateMixer` depends only on `ICombatIntensitySource`, a living-enemy count and the `EncounterDefinition` boss flag, not on combat internals
 **And** thresholds and fade times can be tuned live in Play Mode
 
 ---
@@ -1167,8 +1167,8 @@ Human time = story estimates + gate overhead (reading the report, Unity open, co
 | **M5e** Theseus + Swap | 8.1-8.5 | 115 + 25 = **~140 min** | Hero Select, Theseus kit + Ultimate, both chains, Hero Swap: soak with Theseus, swap, electrify with Heracles (UJ-2). |
 | **M5f** Telemetry + team playtest | 9.1-9.4 | 125 + 10 = **~135 min** | Telemetry JSONL per session, intensity logged, Steam Deck build at 60 FPS, team metrics summary. |
 | **M5g** External gate | 9.5 (+ 9.6 if SM-6 fails, in the following session) | **~120 min** | "Is it fun" verdict report + 3 tuning changes. Testers' sessions are calendar time; facilitation is counted here. |
-| **M6-pre** Music generation | 10.1 | **~90-120 min** | Three AI placeholder layers + manifest, listenable. Flagged: split again if listening iterations run long. |
-| **M6** Dynamic music | 10.2, 10.3 | 70 + 20 = **~90 min** | Hear the music shift calm -> combat -> high during an Encounter. |
+| **M6-pre** Music generation | 10.1 | **~90-120 min** | Four independent AI placeholder tracks + manifest, listenable. Flagged: split again if listening iterations run long. |
+| **M6** Dynamic music | 10.2, 10.3 | 70 + 20 = **~90 min** | Hear the music shift calm -> combat -> advanced-combat (and boss) during an Encounter. |
 | **M7** Wrap-up | 11.1 | 45 + 15 = **~60 min** | Retrospective doc and vertical-slice proposal. |
 
 **Splits made vs. the architecture proposal:** the architecture's M5a (combat core, 2-3 h, at risk) is split into **M5a** (Combo/RAGE/Ultimate) and **M5b** (Status System/Shock/Wet), because statuses plus HUD plus tests exceeded ~3 h of review. Architecture M5b becomes **M5c** (enemies) + **M5d** (arena/waves/Player 2), because the architecture flagged it at 3 h "tight". Architecture M5d becomes **M5f** (build + team playtest) + **M5g** (external playtests), because facilitation alone is ~75 min. M6 music generation is its own session (**M6-pre**) per the architecture flag. **Total:** 13 sessions, ~25 h of human time, about 13 weeks at one session per week.

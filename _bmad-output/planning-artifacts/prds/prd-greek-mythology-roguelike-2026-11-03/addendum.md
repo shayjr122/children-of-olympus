@@ -38,4 +38,4 @@ Depth that belongs downstream (architecture / tuning) rather than in the PRD its
 - **Status System:** Status Definition SO + behavior strategies (OnApply/OnTick/OnExpire/OnDamageReceived modifiers) + interaction-rule SOs. Damage pipeline with tagged damage (e.g. `DamageTag.Shock`) so Wet can modify only Shock damage.
 - **Abilities:** Ability SO (Attack Type, timings, hit shape, projectile, status payload) + Chain SO (first, follow-up, window, bonus effect type).
 - **Telemetry:** event bus → writer to `Application.persistentDataPath/telemetry/<timestamp>.json`.
-- **Music (Phase 2):** three AudioSources started on the same DSP time (`PlayScheduled`), mixer-group volume crossfade driven by Combat Intensity thresholds.
+- **Music (Phase 2):** four independently looping AudioSources (calm, combat, advanced-combat, boss) with no shared BPM or key and no DSP-time sync. A state-driven crossfader on Audio Mixer group volumes picks the state: calm when no enemies, combat vs advanced-combat by Combat Intensity thresholds with hysteresis, boss via an explicit encounter flag.

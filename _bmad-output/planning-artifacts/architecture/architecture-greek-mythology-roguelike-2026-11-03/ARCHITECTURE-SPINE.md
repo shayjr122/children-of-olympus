@@ -49,7 +49,7 @@ flowchart LR
     SP[WaveSpawner]
     FB[FeedbackRouter]
     TEL[TelemetryRecorder]
-    MUS[MusicLayerMixer - M6]
+    MUS[MusicStateMixer - M6]
   end
   subgraph Core["GMR.Core (pure C#)"]
     CTX[EncounterContext]
@@ -183,7 +183,7 @@ flowchart TD
   public interface ICombatIntensitySource { float Current { get; } float PerPlayer(PlayerId id); event Action<float> Changed; }
   ```
 
-  `CombatIntensityTracker` (Core) computes it from the registries and `CombatEvents` with weights and smoothing in `IntensityConfig`. Aggregation across Players is an `IntensityAggregation` enum, default `Max`. It ships in M5, logged to telemetry only. M6's `MusicLayerMixer` depends only on the interface.
+  `CombatIntensityTracker` (Core) computes it from the registries and `CombatEvents` with weights and smoothing in `IntensityConfig`. Aggregation across Players is an `IntensityAggregation` enum, default `Max`. It ships in M5, logged to telemetry only. M6's `MusicStateMixer` depends only on the interface, a living-enemy count and an `EncounterDefinition.isBossEncounter` flag. A pure Core `MusicStateResolver` maps (living enemies, intensity, boss flag) to `MusicState` (`Calm`, `Combat`, `Advanced`, `Boss`) with hysteresis on the combat/advanced threshold. The mixer owns four independently looping AudioSources (one per track, no shared BPM or key, no `PlayScheduled` sync) and crossfades their mixer-group volumes to the resolved state over configured fade times.
 
 ### AD-15 — Telemetry is a passive subscriber writing local JSONL
 
@@ -333,7 +333,7 @@ greek-metology/                 # repo root (docs stay here: GDD.md, prompts/, _
 | FR-27 juice | `Runtime.Feedback.FeedbackRouter`, `TimeScaleService` | AD-11, AD-12 |
 | FR-28–FR-29 HUD, menu | `Runtime.UI` (per-Player HUD panel), `GMR.DevTools` | AD-4, AD-1 |
 | FR-30 telemetry | `Runtime.Telemetry.TelemetryRecorder` | AD-15 |
-| FR-31–FR-32 intensity, music | `Core.Intensity`, `Runtime.Audio.MusicLayerMixer` | AD-14 |
+| FR-31–FR-32 intensity, music | `Core.Intensity`, `Core.Intensity.MusicStateResolver`, `Runtime.Audio.MusicStateMixer` | AD-14 |
 
 ## Implementation Order (milestones)
 
@@ -348,7 +348,7 @@ greek-metology/                 # repo root (docs stay here: GDD.md, prompts/, _
 | **M5b Enemies + waves** | `EnemyBrain` FSM, 3 archetypes + patterns, `ITargetSelector`, `WaveBuilder`/`WaveSpawner`, Arena scene, results panel, Spawn Player 2 debug + PlayMode smoke tests | 3 h | ⚠ tight; slip `SecondPlayerSmokeTest` to M5c if needed |
 | **M5c Theseus + synergy** | Wet + `StatusInteractionRule`, Theseus kit, chains (both), Ultimates, Hero Select + Swap (`HeroSwapConfig`) | 2–3 h | Theseus can slip without blocking SM-1/SM-2. |
 | **M5d Telemetry + gate** | `TelemetryRecorder` JSONL, `CombatIntensityTracker` (telemetry only), playtest build, gate | 1–2 h + playtests | Playtests with 3 external testers are calendar time, not session time. |
-| **M6 Audio** | `MusicLayerMixer` (3 sources, `PlayScheduled` on the same DSP time, mixer-group crossfade on `ICombatIntensitySource` thresholds), Audio Mixer setup | 2–3 h | ⚠ ACE-Step generation and listening iterations can exceed 3 h. Generate the layers in a separate session before M6. |
+| **M6 Audio** | `MusicStateMixer` (4 independent looping sources, state-driven mixer-group crossfade via `MusicStateResolver`: calm / combat / advanced / boss), Audio Mixer setup | 2–3 h | ⚠ ACE-Step generation and listening iterations can exceed 3 h. Generate the four tracks in a separate session before M6. |
 
 ## Open Decisions / Assumptions
 
